@@ -4,7 +4,7 @@ import axios from 'axios';
  * API Base Configuration
  * Change the base URL here to update it across the entire application
  */
-export const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = 'http://16.16.76.74:8000';
 
 // Create axios instance with base configuration
 const apiBase = axios.create({
