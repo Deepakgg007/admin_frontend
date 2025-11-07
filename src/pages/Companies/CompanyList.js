@@ -42,6 +42,10 @@ function CompanyList() {
         const data = response.data.results || response.data;
         const total = response.data.count || data.length;
 
+        console.log('📌 Companies API Response:', response.data);
+        console.log('📌 Companies extracted:', Array.isArray(data) ? data.length : 0, 'Total:', total);
+        console.log('📌 First Company Image (full URL):', data[0]?.image_display);
+
         setCompanies(Array.isArray(data) ? data : []);
         setCurrentPage(page);
         setTotalCount(total);
@@ -105,13 +109,13 @@ function CompanyList() {
   const columns = [
     {
       name: "Logo",
-      selector: (row) => row.image,
+      selector: (row) => row.image_display ?? "",
       sortable: false,
       width: "80px",
       cell: (row) => (
         <div className="user-avatar sq">
-          {row.image ? (
-            <img src={row.image} alt={row.name} />
+          {row.image_display ? (
+            <img src={row.image_display} alt={row.name} />
           ) : (
             <span className="text-uppercase">{row.name.charAt(0)}</span>
           )}

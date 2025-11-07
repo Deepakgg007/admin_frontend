@@ -59,7 +59,7 @@ function CompanyCreate() {
       });
       if (image) data.append('image', image);
 
-      await axios.post(`${API_BASE_URL}/api/companies/admin_create/`, data, {
+      await axios.post(`${API_BASE_URL}/api/company/companies/`, data, {
         headers: {
           Authorization: `Bearer ${authToken}`,
           'Content-Type': 'multipart/form-data',

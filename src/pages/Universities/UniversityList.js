@@ -38,14 +38,15 @@ function UniversityList() {
           }
         );
 
-        console.log('📌 Universities API Response:', response.data);
 
         const res = response.data;
         // Backend returns: { success, message, data: [...], pagination: { total, ... } }
         const universities = res?.data || res?.results || [];
         const total = res?.pagination?.total || res?.count || universities.length;
 
+        console.log('📌 Universities API Response:', response.data);
         console.log('📌 Universities extracted:', universities.length, 'Total:', total);
+        console.log('📌 First University Logo (full URL):', universities[0]?.logo_display);
 
         setUniversity(universities);
         setCurrentPage(page);
@@ -118,18 +119,40 @@ function UniversityList() {
   const columns = [
     {
       name: "Logo",
-      selector: (row) => row.logo ?? "",
+      selector: (row) => row.logo_display ?? "",
       cell: (row) => (
-        <img
-          src={row.logo ?? "/placeholder.png"}
-          alt={row.name}
-          style={{
-            width: "50px",
-            height: "50px",
-            objectFit: "cover",
-            borderRadius: "5px",
-          }}
-        />
+        <div style={{
+          width: "50px",
+          height: "50px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#f0f0f0",
+          borderRadius: "5px",
+        }}>
+          {row.logo_display ? (
+            <img
+              src={row.logo_display}
+              alt={row.name}
+              style={{
+                width: "50px",
+                height: "50px",
+                objectFit: "cover",
+                borderRadius: "5px",
+              }}
+              onError={(e) => {
+                console.error('❌ Failed to load image:', row.logo_display);
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<span style="color: #999; font-size: 10px;">No Logo</span>';
+              }}
+              onLoad={(e) => {
+                console.log('✅ Image loaded successfully:', row.logo_display);
+              }}
+            />
+          ) : (
+            <span style={{color: "#999", fontSize: "10px"}}>No Logo</span>
+          )}
+        </div>
       ),
     },
     { name: "Name", selector: (row) => row.name ?? "—", sortable: true },
