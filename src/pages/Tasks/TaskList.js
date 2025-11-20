@@ -54,7 +54,6 @@ const TaskList = () => {
       const response = await axios.get(url, {
         headers: getAuthHeaders()
       });
-      console.log('📌 Tasks:', response.data);
 
       const taskData = response.data.results || response.data.data || response.data;
       setTasks(Array.isArray(taskData) ? taskData : []);

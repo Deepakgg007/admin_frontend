@@ -19,6 +19,7 @@ function SyllabusDetail() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [availableTopics, setAvailableTopics] = useState([]);
   const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchSyllabusDetail();
@@ -65,61 +66,43 @@ function SyllabusDetail() {
     }
   };
 
-  const handleReorder = async (syllabusTopicId, direction) => {
-    const currentIndex = syllabusTopics.findIndex(st => st.id === syllabusTopicId);
-    console.log('📌 Current topics before reorder:', syllabusTopics.map(st => ({ id: st.id, order: st.order, title: st.topic_title })));
+  const handleOrderChange = (index, newOrder) => {
+    const updated = [...syllabusTopics];
+    updated[index].order = parseInt(newOrder) || 0;
+    setSyllabusTopics(updated);
+  };
 
-    if (
-      (direction === "up" && currentIndex === 0) ||
-      (direction === "down" && currentIndex === syllabusTopics.length - 1)
-    ) {
-      return;
-    }
-
-    const newTopics = [...syllabusTopics];
-    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-    // Swap positions
-    [newTopics[currentIndex], newTopics[swapIndex]] = [newTopics[swapIndex], newTopics[currentIndex]];
-
-    // Update order values for ALL topics to ensure they match their new positions
-    const topicsOrder = newTopics.map((st, index) => ({
-      syllabus_topic_id: st.id,
-      order: index
-    }));
-
-    console.log('📌 Sending reorder request:', topicsOrder);
-
-    // Also update the order in the local state for immediate UI update
-    newTopics.forEach((st, index) => {
-      st.order = index;
-    });
-
+  const handleSaveOrder = async () => {
     try {
+      setIsSaving(true);
+
+      const topicsOrder = syllabusTopics.map((st) => ({
+        syllabus_topic_id: st.id,
+        order: st.order
+      }));
+
       const response = await axios.post(
         `${API_BASE_URL}/api/syllabi/${id}/reorder_topics/`,
         { topics_order: topicsOrder },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
 
-      console.log('📌 Reorder response:', response.data);
-      console.log('📌 Topics after reorder:', newTopics.map(st => ({ id: st.id, order: st.order, title: st.topic_title })));
-
-      setSyllabusTopics(newTopics);
       Swal.fire({
         icon: "success",
-        title: "Topics reordered!",
-        timer: 1500,
-        showConfirmButton: false,
+        title: "Order saved!",
+        text: "Topic order has been updated successfully",
+        timer: 2000
       });
 
       // Refresh from server to ensure consistency
       setTimeout(() => fetchSyllabusDetail(), 500);
     } catch (error) {
-      console.error('📌 Reorder error:', error);
-      Swal.fire("Error!", "Failed to reorder topics.", "error");
+      console.error("Error saving order:", error);
+      Swal.fire("Error!", "Failed to save order", "error");
       // Refresh on error to get correct order from server
       fetchSyllabusDetail();
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -278,9 +261,19 @@ function SyllabusDetail() {
               <Card.Header className="bg-light d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">Topics in Syllabus ({syllabusTopics.length})</h5>
                 <AdminOnly>
-                  <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
-                    <Icon name="plus" /> Add Topic
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      onClick={handleSaveOrder}
+                      disabled={isSaving}
+                    >
+                      <Icon name="save" /> {isSaving ? 'Saving...' : 'Save Order'}
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+                      <Icon name="plus" /> Add Topic
+                    </Button>
+                  </div>
                 </AdminOnly>
               </Card.Header>
               <Card.Body>
@@ -294,7 +287,6 @@ function SyllabusDetail() {
                       <tr>
                         <th style={{width: "60px"}}>Order</th>
                         <th>Title</th>
-                        <th>Description</th>
                         <AdminOnly>
                           <th style={{width: "180px"}}>Actions</th>
                         </AdminOnly>
@@ -303,34 +295,25 @@ function SyllabusDetail() {
                     <tbody>
                       {syllabusTopics.map((st, index) => (
                         <tr key={st.id}>
-                          <td>{st.order}</td>
+                          <AdminOnly>
+                            <td>
+                              <Form.Control
+                                type="number"
+                                value={st.order}
+                                onChange={(e) => handleOrderChange(index, e.target.value)}
+                                style={{ width: '80px' }}
+                                min="0"
+                              />
+                            </td>
+                          </AdminOnly>
                           <td>
                             <Link to={`/Topics/view-topic/${st.topic_id}`}>
                               {st.topic_title}
                             </Link>
                           </td>
-                          <td>{st.topic_description ? st.topic_description.substring(0, 50) + '...' : '—'}</td>
                           <AdminOnly>
                             <td>
-                              <div className="d-flex gap-1">
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => handleReorder(st.id, "up")}
-                                  disabled={index === 0}
-                                  title="Move Up"
-                                >
-                                  <Icon name="arrow-up" />
-                                </Button>
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => handleReorder(st.id, "down")}
-                                  disabled={index === syllabusTopics.length - 1}
-                                  title="Move Down"
-                                >
-                                  <Icon name="arrow-down" />
-                                </Button>
+                              <div className="d-flex">
                                 <Button
                                   variant="outline-danger"
                                   size="sm"

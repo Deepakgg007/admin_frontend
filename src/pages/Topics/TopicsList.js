@@ -17,6 +17,7 @@ function TopicsList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
+  const [creatorFilter, setCreatorFilter] = useState("all");
   const [courses, setCourses] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage] = useState(10);
@@ -68,13 +69,17 @@ function TopicsList() {
           }
         );
 
-        console.log('📌 Topics API Response:', response.data);
 
         const res = response.data;
-        const data = res?.data || res?.results || [];
-        const total = res?.pagination?.total || res?.count || data.length;
+        let data = res?.data || res?.results || [];
 
-        console.log('📌 Topics extracted:', data.length, 'Total:', total);
+        // Client-side filtering by creator type
+        if (creatorFilter !== "all") {
+          data = data.filter(topic => topic.creator_type === creatorFilter);
+        }
+
+        const total = data.length;
+
 
         setTopics(data);
         setCurrentPage(page);
@@ -92,12 +97,18 @@ function TopicsList() {
         setLoading(false);
       }
     },
-    [perPage, searchQuery, courseFilter, authToken]
+    [perPage, searchQuery, courseFilter, creatorFilter, authToken]
   );
 
+  // Fetch topics when page changes
   useEffect(() => {
     fetchTopics(currentPage);
   }, [currentPage, fetchTopics]);
+
+  // When creator filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   const handlePageChange = (page) => setCurrentPage(page);
   const handleSearchChange = (e) => {
@@ -150,12 +161,6 @@ function TopicsList() {
   // Columns for DataTable
   const columns = [
     {
-      name: "Order",
-      selector: (row) => row.order,
-      sortable: true,
-      width: "80px"
-    },
-    {
       name: "Title",
       selector: (row) => row.title ?? "—",
       sortable: true,
@@ -171,7 +176,7 @@ function TopicsList() {
       name: "Creator Type",
       selector: (row) => row.creator_type || "—",
       sortable: true,
-      width: "120px",
+      width: "150px",
       cell: (row) => {
         const typeColors = {
           'Superuser': 'danger',
@@ -327,6 +332,31 @@ function TopicsList() {
 
       <Block>
         <Card className="p-3">
+          {/* Creator Type Filter Tabs */}
+          <div className="mb-3 d-flex gap-2">
+            <button
+              onClick={() => setCreatorFilter("all")}
+              className={`btn ${creatorFilter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              All Topics
+            </button>
+            <button
+              onClick={() => setCreatorFilter("Superuser")}
+              className={`btn ${creatorFilter === "Superuser" ? "btn-danger" : "btn-outline-danger"}`}
+              size="sm"
+            >
+              Admin Created
+            </button>
+            <button
+              onClick={() => setCreatorFilter("College")}
+              className={`btn ${creatorFilter === "College" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              College Created
+            </button>
+          </div>
+
           <Form onSubmit={handleSearchSubmit} className="mb-3">
             <Row className="align-items-end g-3">
               <Col md={4}>
@@ -369,9 +399,6 @@ function TopicsList() {
             data={topics}
             columns={columns}
             customStyles={customStyles}
-            selectableRows
-            onSelectedRowsChange={handleSelectedRowsChange}
-            selectedRows={selectedRows}
             progressPending={loading}
             pagination
             paginationServer

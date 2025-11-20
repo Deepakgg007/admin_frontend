@@ -21,6 +21,7 @@ function CourseList() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedRows, setSelectedRows] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [creatorFilter, setCreatorFilter] = useState("all");
 
   const authToken = localStorage.getItem("authToken");
 
@@ -45,17 +46,26 @@ function CourseList() {
     async (page = 1) => {
       setLoading(true);
       try {
+        const params = { page, per_page: perPage, search: searchQuery };
+
+        console.log('Fetching courses with params:', params);
+
         const response = await axios.get(`${API_BASE_URL}/api/courses/`, {
-          params: { page, per_page: perPage, search: searchQuery },
+          params,
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
 
         const res = response.data;
         // Backend returns: { success, message, data: [...], pagination: { total, ... } }
-        const data = res?.data || res?.results || [];
-        const total = res?.pagination?.total || res?.count || data.length;
+        let data = res?.data || res?.results || [];
 
+        // Client-side filtering by creator type
+        if (creatorFilter !== "all") {
+          data = data.filter(course => course.creator_type === creatorFilter);
+        }
+
+        const total = data.length;
 
         setCourses(data);
         setCurrentPage(page);
@@ -74,12 +84,18 @@ function CourseList() {
         setLoading(false);
       }
     },
-    [authToken, perPage, searchQuery]
+    [authToken, perPage, searchQuery, creatorFilter]
   );
 
+  // Fetch courses when page changes
   useEffect(() => {
     fetchCourses(currentPage);
   }, [currentPage, fetchCourses]);
+
+  // When filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   const handlePageChange = (page) => setCurrentPage(page);
   const handleSearchChange = (e) => {
@@ -152,7 +168,7 @@ function CourseList() {
       name: "Creator Type",
       selector: (row) => row.creator_type || "—",
       sortable: true,
-      width: "120px",
+      width: "150px",
       cell: (row) => {
         const typeColors = {
           'Superuser': 'danger',
@@ -194,13 +210,7 @@ function CourseList() {
         </span>
       )
     },
-    { name: "Duration (hrs)", selector: (row) => row.duration_hours ?? 0, sortable: true },
-    {
-      name: "Featured",
-      selector: (row) => row.is_featured ? "Yes" : "No",
-      sortable: true,
-      cell: (row) => row.is_featured ? <span className="badge bg-warning">Featured</span> : "—"
-    },
+
     {
       name: "Created At",
       selector: (row) =>
@@ -265,6 +275,31 @@ function CourseList() {
 
       <Block>
         <Card className="p-3">
+          {/* Filter Tabs */}
+          <div className="mb-3 d-flex gap-2">
+            <button
+              onClick={() => setCreatorFilter("all")}
+              className={`btn ${creatorFilter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              All Courses
+            </button>
+            <button
+              onClick={() => setCreatorFilter("Superuser")}
+              className={`btn ${creatorFilter === "Superuser" ? "btn-danger" : "btn-outline-danger"}`}
+              size="sm"
+            >
+              Admin Created
+            </button>
+            <button
+              onClick={() => setCreatorFilter("College")}
+              className={`btn ${creatorFilter === "College" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              College Created
+            </button>
+          </div>
+
           <Form onSubmit={handleSearchSubmit} className="mb-3 narrow-search">
             <Row className="align-items-center g-2">
               <Col md={10}>
@@ -288,9 +323,6 @@ function CourseList() {
             data={courses}
             columns={columns}
             customStyles={customStyles}
-            selectableRows
-            onSelectedRowsChange={handleSelectedRowsChange}
-            selectedRows={selectedRows}
             progressPending={loading}
             pagination
             paginationServer

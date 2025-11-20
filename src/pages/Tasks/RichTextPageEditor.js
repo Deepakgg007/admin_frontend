@@ -9,6 +9,90 @@ import Layout from '../../layout/default';
 import { Block, BlockHead, BlockHeadContent, BlockTitle, Icon } from '../../components';
 import { API_BASE_URL } from '../../services/apiBase';
 
+// Add custom CSS for compact spacing in CKEditor
+const editorStyles = `
+  .ck-editor__editable {
+    min-height: 400px;
+    max-height: 600px;
+    font-family: 'Calibri', 'Arial', sans-serif;
+  }
+  .ck-editor__editable p {
+    margin: 0.25rem 0 !important;
+    padding: 0 !important;
+    line-height: 1.3 !important;
+  }
+  .ck-editor__editable h1,
+  .ck-editor__editable h2,
+  .ck-editor__editable h3,
+  .ck-editor__editable h4 {
+    margin: 0.5rem 0 !important;
+    padding: 0 !important;
+    line-height: 1.3 !important;
+  }
+  .ck-editor__editable ul,
+  .ck-editor__editable ol {
+    margin: 0.25rem 0 !important;
+    padding-left: 2rem !important;
+  }
+  .ck-editor__editable li {
+    margin: 0.1rem 0 !important;
+    padding: 0 !important;
+  }
+  .ck-editor__editable img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0.5rem auto !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+  }
+  .ck-editor__editable figure {
+    margin: 0.5rem 0 !important;
+  }
+  .ck-editor__editable figure img {
+    margin: 0 !important;
+  }
+  .ck-toolbar {
+    border: 1px solid #d1d5db !important;
+    border-radius: 4px 4px 0 0 !important;
+    background: linear-gradient(to bottom, #f9fafb, #f3f4f6) !important;
+  }
+  .ck-editor__main {
+    border: 1px solid #d1d5db;
+    border-radius: 0 0 4px 4px;
+  }
+`;
+
+// Custom image handler for Base64 encoding
+class Base64UploadAdapter {
+  constructor(loader) {
+    this.loader = loader;
+  }
+
+  upload() {
+    return this.loader.file.then(file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          default: reader.result
+        });
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    }));
+  }
+
+  abort() {
+    // Abort upload
+  }
+}
+
+function Base64UploadAdapterPlugin(editor) {
+  editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+    return new Base64UploadAdapter(loader);
+  };
+}
+
 const RichTextPageEditor = () => {
   const { taskId, pageId } = useParams();
   const navigate = useNavigate();
@@ -304,6 +388,7 @@ const RichTextPageEditor = () => {
 
   return (
     <Layout title={isEdit ? 'Edit Rich Text Page' : 'Create Rich Text Page'} content="container">
+      <style>{editorStyles}</style>
       <Block>
         <BlockHead>
           <BlockHeadContent>
@@ -443,13 +528,144 @@ const RichTextPageEditor = () => {
                                   updateBlock(block.id, 'content', data);
                                 }}
                                 config={{
-                                  toolbar: [
-                                    'heading', '|',
-                                    'bold', 'italic', 'underline', '|',
-                                    'bulletedList', 'numberedList', '|',
-                                    'link', 'blockQuote', '|',
-                                    'undo', 'redo'
-                                  ]
+                                  extraPlugins: [Base64UploadAdapterPlugin],
+                                  toolbar: {
+                                    items: [
+                                      'heading', 'paragraph', '|',
+                                      'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript', '|',
+                                      'fontColor', 'fontBackgroundColor', 'fontFamily', 'fontSize', '|',
+                                      'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+                                      'alignment', '|',
+                                      'link', 'uploadImage', 'blockQuote', 'codeBlock', 'insertTable', 'horizontalLine', '|',
+                                      'removeFormat', '|',
+                                      'undo', 'redo'
+                                    ],
+                                    shouldNotGroupWhenFull: true
+                                  },
+                                  paragraph: {
+                                    modes: [
+                                      {
+                                        title: 'Paragraph',
+                                        model: 'paragraph',
+                                        class: 'ck-heading_paragraph'
+                                      }
+                                    ]
+                                  },
+                                  image: {
+                                    toolbar: [
+                                      'imageStyle:block',
+                                      'imageStyle:side',
+                                      'imageStyle:alignBlockLeft',
+                                      'imageStyle:alignBlockRight',
+                                      'imageStyle:alignInline',
+                                      '|',
+                                      'imageResize',
+                                      '|',
+                                      'imageTextAlternative',
+                                      'imageTitle',
+                                      'imageLinkOpen',
+                                      'imageLinkEdit'
+                                    ],
+                                    styles: {
+                                      options: [
+                                        { name: 'block', title: 'Block image (full width)', isDefault: true },
+                                        { name: 'side', title: 'Side image (wrapped with text)' },
+                                        { name: 'inline', title: 'Inline image' },
+                                        { name: 'alignBlockLeft', title: 'Align left' },
+                                        { name: 'alignBlockRight', title: 'Align right' }
+                                      ]
+                                    },
+                                    resizeOptions: [
+                                      {
+                                        name: 'resizeImage:original',
+                                        label: 'Original size',
+                                        value: null
+                                      },
+                                      {
+                                        name: 'resizeImage:50',
+                                        label: '50%',
+                                        value: '50'
+                                      },
+                                      {
+                                        name: 'resizeImage:75',
+                                        label: '75%',
+                                        value: '75'
+                                      }
+                                    ]
+                                  },
+                                  simpleUpload: {
+                                    uploadUrl: `${API_BASE_URL}/api/upload-image/`
+                                  },
+                                  upload: {
+                                    types: ['jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff']
+                                  },
+                                  table: {
+                                    contentToolbar: [
+                                      'tableColumn',
+                                      'tableRow',
+                                      'mergeTableCells',
+                                      'tableProperties',
+                                      'tableCellProperties',
+                                      'toggleTableCaption'
+                                    ]
+                                  },
+                                  fontSize: {
+                                    options: [
+                                      9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 28, 32, 36
+                                    ]
+                                  },
+                                  fontFamily: {
+                                    options: [
+                                      'default',
+                                      'Arial, sans-serif',
+                                      'Calibri, sans-serif',
+                                      'Courier New, monospace',
+                                      'Georgia, serif',
+                                      'Lucida Sans Unicode, sans-serif',
+                                      'Trebuchet MS, sans-serif',
+                                      'Verdana, sans-serif',
+                                      'Times New Roman, serif'
+                                    ]
+                                  },
+                                  fontColor: {
+                                    columns: 5,
+                                    colors: [
+                                      { color: 'hsl(0, 0%, 0%)', label: 'Black' },
+                                      { color: 'hsl(0, 0%, 30%)', label: 'Dark Grey' },
+                                      { color: 'hsl(0, 0%, 60%)', label: 'Grey' },
+                                      { color: 'hsl(0, 75%, 60%)', label: 'Red' },
+                                      { color: 'hsl(30, 75%, 60%)', label: 'Orange' },
+                                      { color: 'hsl(60, 75%, 60%)', label: 'Yellow' },
+                                      { color: 'hsl(120, 75%, 60%)', label: 'Green' },
+                                      { color: 'hsl(180, 75%, 60%)', label: 'Cyan' },
+                                      { color: 'hsl(240, 75%, 60%)', label: 'Blue' },
+                                      { color: 'hsl(270, 75%, 60%)', label: 'Purple' },
+                                      { color: 'hsl(300, 75%, 60%)', label: 'Magenta' },
+                                      { color: 'hsl(0, 0%, 100%)', label: 'White' }
+                                    ]
+                                  },
+                                  fontBackgroundColor: {
+                                    columns: 5,
+                                    colors: [
+                                      { color: 'hsl(0, 0%, 100%)', label: 'White (default)' },
+                                      { color: 'hsl(60, 75%, 60%)', label: 'Yellow highlight' },
+                                      { color: 'hsl(120, 75%, 60%)', label: 'Green highlight' },
+                                      { color: 'hsl(240, 75%, 60%)', label: 'Blue highlight' },
+                                      { color: 'hsl(0, 75%, 60%)', label: 'Red highlight' },
+                                      { color: 'hsl(30, 75%, 60%)', label: 'Orange highlight' },
+                                      { color: 'hsl(300, 75%, 60%)', label: 'Pink highlight' },
+                                      { color: 'hsl(270, 75%, 60%)', label: 'Purple highlight' }
+                                    ]
+                                  },
+                                  heading: {
+                                    options: [
+                                      { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                                      { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                                      { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                                      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+                                      { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+                                    ]
+                                  }
                                 }}
                               />
                               {errors[`block-${index}`] && (

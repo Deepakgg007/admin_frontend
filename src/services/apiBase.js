@@ -4,7 +4,10 @@ import axios from 'axios';
  * API Base Configuration
  * Change the base URL here to update it across the entire application
  */
-export const API_BASE_URL = 'http://16.16.76.74:8000';
+
+// export const API_BASE_URL = 'https://krishik-abiuasd.in';
+
+export const API_BASE_URL = 'http://localhost:8000';
 
 // Create axios instance with base configuration
 const apiBase = axios.create({
@@ -38,5 +41,14 @@ apiBase.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ========== Authentication APIs ==========
+
+/**
+ * Logout user and clear session
+ */
+export const logoutUser = () => {
+  return apiBase.post('/auth/logout/');
+};
 
 export default apiBase;

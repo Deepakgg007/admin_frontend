@@ -11,6 +11,7 @@ import { Icon } from '../../components';
 import { Eye, Edit, Trash2, FileText, HelpCircle, Video, File } from 'react-feather';
 import { API_BASE_URL } from '../../services/apiBase';
 
+
 const TaskManagement = () => {
   const [tasks, setTasks] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -21,6 +22,7 @@ const TaskManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
+  const [creatorFilter, setCreatorFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -65,8 +67,14 @@ const TaskManagement = () => {
         console.log('📌 Tasks API Response:', response.data);
 
         const res = response.data;
-        const data = res?.data || res?.results || [];
-        const total = res?.pagination?.total || res?.count || data.length;
+        let data = res?.data || res?.results || [];
+
+        // Client-side filtering by creator type
+        if (creatorFilter !== 'all') {
+          data = data.filter(task => task.creator_type === creatorFilter);
+        }
+
+        const total = data.length;
 
         console.log('📌 Tasks extracted:', data.length, 'Total:', total);
 
@@ -87,7 +95,7 @@ const TaskManagement = () => {
         setLoading(false);
       }
     },
-    [authToken, perPage, searchQuery, filterCourse, filterTopic]
+    [authToken, perPage, searchQuery, filterCourse, filterTopic, creatorFilter]
   );
 
   useEffect(() => {
@@ -95,6 +103,11 @@ const TaskManagement = () => {
     fetchCourses();
     fetchAllTopics();
   }, [currentPage, fetchTasks]);
+
+  // When creator filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   useEffect(() => {
     if (formData.course) {
@@ -331,14 +344,7 @@ const TaskManagement = () => {
       name: 'Max Score',
       selector: (row) => row.max_score ?? 0,
       sortable: true,
-      width: '100px'
-    },
-    {
-      name: 'Duration',
-      selector: (row) => row.duration_minutes ?? 0,
-      sortable: true,
-      cell: (row) => `${row.duration_minutes} min`,
-      width: '100px'
+      width: '130px'
     },
     {
       name: 'Status',
@@ -366,30 +372,9 @@ const TaskManagement = () => {
         )
       ),
       center: true,
-      width: '110px'
+      width: '120px'
     },
-    {
-      name: 'Add Content',
-      cell: (row) => (
-        <div className="d-flex gap-1 flex-wrap">
-          <Link to={`/Tasks/question-form/${row.id}`} className="btn btn-sm btn-icon btn-outline-info" title="Add Questions">
-            <HelpCircle size={14} />
-          </Link>
-          <Link to={`/Tasks/task-detail/${row.id}`} className="btn btn-sm btn-icon btn-outline-secondary" title="Add Documents">
-            <FileText size={14} />
-          </Link>
-          <Link to={`/Tasks/task-detail/${row.id}`} className="btn btn-sm btn-icon btn-outline-warning" title="Add Videos">
-            <Video size={14} />
-          </Link>
-          <Link to={`/Courses/manage-task-content/${row.id}?tab=richtext`} className="btn btn-sm btn-icon btn-outline-primary" title="Add Rich Text Page">
-            <File size={14} />
-          </Link>
-        </div>
-      ),
-      ignoreRowClick: true,
-      allowOverflow: true,
-      width: '160px'
-    },
+    
     {
       name: 'Actions',
       width: "130px",
@@ -448,6 +433,31 @@ const TaskManagement = () => {
 
       <Block>
         <Card className="p-3">
+          {/* Creator Type Filter Tabs */}
+          <div className="mb-3 d-flex gap-2">
+            <button
+              onClick={() => setCreatorFilter('all')}
+              className={`btn ${creatorFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+              size="sm"
+            >
+              All Tasks
+            </button>
+            <button
+              onClick={() => setCreatorFilter('Superuser')}
+              className={`btn ${creatorFilter === 'Superuser' ? 'btn-danger' : 'btn-outline-danger'}`}
+              size="sm"
+            >
+              Admin Created
+            </button>
+            <button
+              onClick={() => setCreatorFilter('College')}
+              className={`btn ${creatorFilter === 'College' ? 'btn-primary' : 'btn-outline-primary'}`}
+              size="sm"
+            >
+              College Created
+            </button>
+          </div>
+
           {/* Filters Row */}
           <Row className="mb-3 g-2">
             <Col md={4}>
@@ -524,10 +534,6 @@ const TaskManagement = () => {
             data={tasks}
             columns={columns}
             customStyles={customStyles}
-            selectableRows
-            onSelectedRowsChange={handleSelectedRowsChange}
-            selectedRows={selectedRows}
-            progressPending={loading}
             pagination
             paginationServer
             paginationTotalRows={totalCount}
@@ -607,6 +613,11 @@ const TaskManagement = () => {
                 value={formData.topic}
                 onChange={handleInputChange}
                 disabled={!formData.syllabus}
+                size="8"
+                style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}
               >
                 <option value="">Select Topic</option>
                 {topics.map((topic) => (
@@ -615,6 +626,9 @@ const TaskManagement = () => {
                   </option>
                 ))}
               </Form.Select>
+              <small className="text-muted d-block mt-1">
+                {topics.length > 10 ? `Showing ${topics.length} topics - Use scroll to view all` : `${topics.length} topic(s) available`}
+              </small>
             </Form.Group>
 
             <Form.Group className="mb-3">

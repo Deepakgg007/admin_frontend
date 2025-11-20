@@ -47,7 +47,6 @@ const TaskContentManager = () => {
       const response = await axios.get(`${API_BASE_URL}/api/tasks/${taskId}/`, {
         headers: getAuthHeaders()
       });
-      console.log('📌 Task Details:', response.data);
       const taskData = response.data.data || response.data;
       setTask(taskData);
     } catch (error) {

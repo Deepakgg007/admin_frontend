@@ -17,6 +17,7 @@ function SyllabusList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
+  const [creatorFilter, setCreatorFilter] = useState("all");
   const [courses, setCourses] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage] = useState(10);
@@ -71,8 +72,14 @@ function SyllabusList() {
         console.log('📌 Syllabus API Response:', response.data);
 
         const res = response.data;
-        const data = res?.data || res?.results || [];
-        const total = res?.pagination?.total || res?.count || data.length;
+        let data = res?.data || res?.results || [];
+
+        // Client-side filtering by creator type
+        if (creatorFilter !== "all") {
+          data = data.filter(syllabus => syllabus.creator_type === creatorFilter);
+        }
+
+        const total = data.length;
 
         console.log('📌 Syllabi extracted:', data.length, 'Total:', total);
 
@@ -92,12 +99,18 @@ function SyllabusList() {
         setLoading(false);
       }
     },
-    [perPage, searchQuery, courseFilter, authToken]
+    [perPage, searchQuery, courseFilter, creatorFilter, authToken]
   );
 
+  // Fetch syllabi when page changes
   useEffect(() => {
     fetchSyllabi(currentPage);
   }, [currentPage, fetchSyllabi]);
+
+  // When creator filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   const handlePageChange = (page) => setCurrentPage(page);
   const handleSearchChange = (e) => {
@@ -153,7 +166,7 @@ function SyllabusList() {
       name: "Order",
       selector: (row) => row.order,
       sortable: true,
-      width: "80px"
+      width: "100px"
     },
     {
       name: "Title",
@@ -171,7 +184,7 @@ function SyllabusList() {
       name: "Creator Type",
       selector: (row) => row.creator_type || "—",
       sortable: true,
-      width: "120px",
+      width: "150px",
       cell: (row) => {
         const typeColors = {
           'Superuser': 'danger',
@@ -339,6 +352,31 @@ function SyllabusList() {
 
       <Block>
         <Card className="p-3">
+          {/* Creator Type Filter Tabs */}
+          <div className="mb-3 d-flex gap-2">
+            <button
+              onClick={() => setCreatorFilter("all")}
+              className={`btn ${creatorFilter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              All Syllabi
+            </button>
+            <button
+              onClick={() => setCreatorFilter("Superuser")}
+              className={`btn ${creatorFilter === "Superuser" ? "btn-danger" : "btn-outline-danger"}`}
+              size="sm"
+            >
+              Admin Created
+            </button>
+            <button
+              onClick={() => setCreatorFilter("College")}
+              className={`btn ${creatorFilter === "College" ? "btn-primary" : "btn-outline-primary"}`}
+              size="sm"
+            >
+              College Created
+            </button>
+          </div>
+
           <Form onSubmit={handleSearchSubmit} className="mb-3">
             <Row className="align-items-end g-3">
               <Col md={4}>
@@ -381,9 +419,6 @@ function SyllabusList() {
             data={syllabi}
             columns={columns}
             customStyles={customStyles}
-            selectableRows
-            onSelectedRowsChange={handleSelectedRowsChange}
-            selectedRows={selectedRows}
             progressPending={loading}
             pagination
             paginationServer

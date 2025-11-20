@@ -21,6 +21,7 @@ function JobList() {
   const [filterJobType, setFilterJobType] = useState("");
   const [filterExperience, setFilterExperience] = useState("");
   const [filterActive, setFilterActive] = useState("true");
+  const [creatorFilter, setCreatorFilter] = useState("all");
 
   const authToken = localStorage.getItem("authToken");
   const navigate = useNavigate();
@@ -41,8 +42,18 @@ function JobList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        const data = response.data.results || response.data;
-        const total = response.data.count || data.length;
+        let data = response.data.results || response.data;
+
+        // Client-side filtering by creator type
+        if (creatorFilter !== "all") {
+          if (creatorFilter === "Superuser") {
+            data = data.filter(job => !job.college_name);
+          } else if (creatorFilter === "College") {
+            data = data.filter(job => job.college_name);
+          }
+        }
+
+        const total = Array.isArray(data) ? data.length : 0;
 
         setJobs(Array.isArray(data) ? data : []);
         setCurrentPage(page);
@@ -59,12 +70,17 @@ function JobList() {
         setLoading(false);
       }
     },
-    [perPage, searchQuery, filterJobType, filterExperience, filterActive, authToken]
+    [perPage, searchQuery, filterJobType, filterExperience, filterActive, creatorFilter, authToken]
   );
 
   useEffect(() => {
     fetchJobs(currentPage);
   }, [currentPage, fetchJobs]);
+
+  // When creator filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   const handlePageChange = (page) => setCurrentPage(page);
 
@@ -270,6 +286,31 @@ function JobList() {
       <Block>
         <Card>
           <Card.Body>
+            {/* Creator Type Filter Tabs */}
+            <div className="mb-3 d-flex gap-2">
+              <button
+                onClick={() => setCreatorFilter("all")}
+                className={`btn ${creatorFilter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+                size="sm"
+              >
+                All Jobs
+              </button>
+              <button
+                onClick={() => setCreatorFilter("Superuser")}
+                className={`btn ${creatorFilter === "Superuser" ? "btn-danger" : "btn-outline-danger"}`}
+                size="sm"
+              >
+                Admin Created
+              </button>
+              <button
+                onClick={() => setCreatorFilter("College")}
+                className={`btn ${creatorFilter === "College" ? "btn-primary" : "btn-outline-primary"}`}
+                size="sm"
+              >
+                College Created
+              </button>
+            </div>
+
             <Row className="g-3 mb-3">
               <Col md={3}>
                 <Form onSubmit={handleSearchSubmit}>

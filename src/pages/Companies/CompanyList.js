@@ -20,6 +20,7 @@ function CompanyList() {
   const [totalCount, setTotalCount] = useState(0);
   const [filterHiring, setFilterHiring] = useState("");
   const [filterActive, setFilterActive] = useState("true");
+  const [creatorFilter, setCreatorFilter] = useState("all");
 
   const authToken = localStorage.getItem("authToken");
   const navigate = useNavigate();
@@ -39,8 +40,18 @@ function CompanyList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        const data = response.data.results || response.data;
-        const total = response.data.count || data.length;
+        let data = response.data.results || response.data;
+
+        // Client-side filtering by creator type
+        if (creatorFilter !== "all") {
+          if (creatorFilter === "Superuser") {
+            data = data.filter(company => !company.college_name);
+          } else if (creatorFilter === "College") {
+            data = data.filter(company => company.college_name);
+          }
+        }
+
+        const total = Array.isArray(data) ? data.length : 0;
 
         console.log('📌 Companies API Response:', response.data);
         console.log('📌 Companies extracted:', Array.isArray(data) ? data.length : 0, 'Total:', total);
@@ -61,12 +72,17 @@ function CompanyList() {
         setLoading(false);
       }
     },
-    [perPage, searchQuery, filterHiring, filterActive, authToken]
+    [perPage, searchQuery, filterHiring, filterActive, creatorFilter, authToken]
   );
 
   useEffect(() => {
     fetchCompanies(currentPage);
   }, [currentPage, fetchCompanies]);
+
+  // When creator filter changes, reset to page 1 and fetch
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatorFilter]);
 
   const handlePageChange = (page) => setCurrentPage(page);
 
@@ -238,6 +254,31 @@ function CompanyList() {
       <Block>
         <Card>
           <Card.Body>
+            {/* Creator Type Filter Tabs */}
+            <div className="mb-3 d-flex gap-2">
+              <button
+                onClick={() => setCreatorFilter("all")}
+                className={`btn ${creatorFilter === "all" ? "btn-primary" : "btn-outline-primary"}`}
+                size="sm"
+              >
+                All Companies
+              </button>
+              <button
+                onClick={() => setCreatorFilter("Superuser")}
+                className={`btn ${creatorFilter === "Superuser" ? "btn-danger" : "btn-outline-danger"}`}
+                size="sm"
+              >
+                Admin Created
+              </button>
+              <button
+                onClick={() => setCreatorFilter("College")}
+                className={`btn ${creatorFilter === "College" ? "btn-primary" : "btn-outline-primary"}`}
+                size="sm"
+              >
+                College Created
+              </button>
+            </div>
+
             <Row className="g-3 mb-3">
               <Col md={4}>
                 <Form onSubmit={handleSearchSubmit}>

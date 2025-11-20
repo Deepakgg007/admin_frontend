@@ -80,7 +80,7 @@ function Router() {
   return (
     <ScrollToTop>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/auths/auth-login" replace />} />
         <Route path="dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
 
         <Route path="University">
