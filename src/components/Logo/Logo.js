@@ -5,14 +5,14 @@ function Logo() {
     <Link to="/dashboard" className="logo-link flex items-center gap-2">
       {/* Logo Icon */}
       <img
-        src="/images/haegl.png"
-        alt="Trigo Logo"
-        style={{ height: '35px', width: '50px' }}
+        src="/z1logo.png"
+        alt="Z1 Logo"
+        style={{ height: '35px', width: '50px', borderRadius: '4px' }}
       />
 
       {/* Text Section */}
       <div className="flex flex-col leading-tight">
-        <span className="text-lg font-bold text-white">GetEducate Admin</span>
+        <span className="text-lg font-bold text-white">Z1 Admin</span>
       </div>
     </Link>
   );

@@ -20,7 +20,7 @@ function JobView() {
   useEffect(() => {
     const fetchJob = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/jobs/${slug}/`, {
+        const response = await axios.get(`${API_BASE_URL}/api/company/jobs/${slug}/`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         setJob(response.data);
@@ -131,7 +131,7 @@ function JobView() {
                   <div className="mb-2">
                     <strong><Icon name="dollar-sign" /> Salary:</strong>
                     <p className="mb-0">
-                      {job.salary_currency} {job.salary_min?.toLocaleString()} - {job.salary_max?.toLocaleString()}
+                      ₹{job.salary_min?.toLocaleString()} - ₹{job.salary_max?.toLocaleString()}
                     </p>
                   </div>
                 )}

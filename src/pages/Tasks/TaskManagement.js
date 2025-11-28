@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, Form, Dropdown, Row, Col, Button, Modal, Badge } from 'react-bootstrap';
 import axios from 'axios';
 import Swal from 'sweetalert2';
@@ -13,51 +13,34 @@ import { API_BASE_URL } from '../../services/apiBase';
 
 
 const TaskManagement = () => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [syllabi, setSyllabi] = useState([]);
-  const [topics, setTopics] = useState([]);
   const [allTopics, setAllTopics] = useState([]);
+  const [filteredTopics, setFilteredTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
   const [creatorFilter, setCreatorFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [currentTask, setCurrentTask] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    course: '',
-    syllabus: '',
-    topic: '',
-    task_type: 'assignment',
-    max_score: 100,
-    duration_minutes: 60,
-    status: 'active',
-    is_mandatory: false
-  });
 
   const authToken = localStorage.getItem('authToken') || localStorage.getItem('access_token');
 
   const fetchTasks = useCallback(
-    async (page = 1) => {
+    async () => {
       setLoading(true);
       try {
         const params = {
-          page,
-          per_page: perPage,
+          per_page: 10000, // Fetch all tasks without pagination
           search: searchQuery
         };
 
         // Add filters if selected
         if (filterCourse) params.course = filterCourse;
         if (filterTopic) params.topic = filterTopic;
+
+        console.log('📌 Fetching tasks with params:', params);
 
         const response = await axios.get(`${API_BASE_URL}/api/tasks/`, {
           params,
@@ -69,21 +52,29 @@ const TaskManagement = () => {
         const res = response.data;
         let data = res?.data || res?.results || [];
 
+        console.log('📌 Raw data from API:', data.length, 'tasks');
+
         // Client-side filtering by creator type
         if (creatorFilter !== 'all') {
           data = data.filter(task => task.creator_type === creatorFilter);
+          console.log('📌 After creator filter:', data.length, 'tasks');
         }
 
-        const total = data.length;
+        // Client-side filtering by topic (in case API doesn't filter properly)
+        if (filterTopic) {
+          data = data.filter(task => {
+            const taskTopicId = task.topic;
+            const selectedTopicId = parseInt(filterTopic);
+            return taskTopicId === selectedTopicId;
+          });
+          console.log('📌 After topic filter:', data.length, 'tasks for topic', filterTopic);
+        }
 
-        console.log('📌 Tasks extracted:', data.length, 'Total:', total);
+        console.log('📌 Final tasks extracted:', data.length);
 
         setTasks(data);
-        setCurrentPage(page);
-        setTotalCount(total);
       } catch (error) {
         setTasks([]);
-        setTotalCount(0);
         Swal.fire(
           'Error!',
           error.response?.data?.error ||
@@ -95,31 +86,41 @@ const TaskManagement = () => {
         setLoading(false);
       }
     },
-    [authToken, perPage, searchQuery, filterCourse, filterTopic, creatorFilter]
+    [authToken, searchQuery, filterCourse, filterTopic, creatorFilter]
   );
 
   useEffect(() => {
-    fetchTasks(currentPage);
+    fetchTasks();
     fetchCourses();
     fetchAllTopics();
-  }, [currentPage, fetchTasks]);
+  }, [fetchTasks]);
 
-  // When creator filter changes, reset to page 1 and fetch
+  // Filter topics based on selected course
   useEffect(() => {
-    setCurrentPage(1);
-  }, [creatorFilter]);
+    if (filterCourse) {
+      const courseId = parseInt(filterCourse);
+      const topicsForCourse = allTopics.filter(topic => {
+        const topicCourseId = topic.course;
+        return topicCourseId === courseId;
+      });
+      setFilteredTopics(topicsForCourse);
+      console.log(`Filtered ${topicsForCourse.length} topics for course ${filterCourse}:`, topicsForCourse);
 
-  useEffect(() => {
-    if (formData.course) {
-      fetchSyllabiForCourse(formData.course);
+      // Only reset topic filter if selected topic is NOT in the new course
+      if (filterTopic) {
+        const isTopicInCourse = topicsForCourse.some(t => t.id === parseInt(filterTopic));
+        if (!isTopicInCourse) {
+          console.log(`Topic ${filterTopic} not found in course ${filterCourse}, resetting topic filter`);
+          setFilterTopic('');
+        } else {
+          console.log(`Topic ${filterTopic} is valid for course ${filterCourse}, keeping selection`);
+        }
+      }
+    } else {
+      setFilteredTopics([]);
+      setFilterTopic('');
     }
-  }, [formData.course]);
-
-  useEffect(() => {
-    if (formData.syllabus) {
-      fetchTopicsForSyllabus(formData.syllabus);
-    }
-  }, [formData.syllabus]);
+  }, [filterCourse, allTopics, filterTopic]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('authToken');
@@ -142,32 +143,19 @@ const TaskManagement = () => {
   };
 
   const fetchSyllabiForCourse = async (courseId) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/syllabi/?course=${courseId}`, {
-        headers: getAuthHeaders()
-      });
-      const syllabusData = response.data.results || response.data.data || response.data;
-      setSyllabi(Array.isArray(syllabusData) ? syllabusData : []);
-    } catch (error) {
-      console.error('Error fetching syllabi:', error);
-    }
+    // This function is no longer needed as form handling moved to TaskForm component
   };
 
   const fetchTopicsForSyllabus = async (syllabusId) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/topics/?syllabus=${syllabusId}`, {
-        headers: getAuthHeaders()
-      });
-      const topicData = response.data.results || response.data.data || response.data;
-      setTopics(Array.isArray(topicData) ? topicData : []);
-    } catch (error) {
-      console.error('Error fetching topics:', error);
-    }
+    // This function is no longer needed as form handling moved to TaskForm component
   };
 
   const fetchAllTopics = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/topics/`, {
+        params: {
+          limit: 10000 // Fetch all topics by requesting a large limit
+        },
         headers: getAuthHeaders()
       });
       const topicData = response.data.results || response.data.data || response.data;
@@ -177,103 +165,33 @@ const TaskManagement = () => {
     }
   };
 
-  const handlePageChange = (page) => setCurrentPage(page);
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1);
   };
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchTasks(1);
+    fetchTasks();
   };
   const handleSelectedRowsChange = ({ selectedRows }) => setSelectedRows(selectedRows);
 
   const handleShowModal = async (task = null) => {
     if (task) {
-      setEditMode(true);
-      setCurrentTask(task);
-      setFormData({
-        title: task.title || '',
-        description: task.description || '',
-        course: task.course || '',
-        syllabus: task.syllabus || '',
-        topic: task.topic || '',
-        task_type: task.task_type || 'assignment',
-        max_score: task.max_score || 100,
-        duration_minutes: task.duration_minutes || 60,
-        status: task.status || 'active',
-        is_mandatory: task.is_mandatory || false
-      });
-
-      // Load syllabi and topics for the task's course
-      if (task.course) {
-        await fetchSyllabiForCourse(task.course);
-      }
-      if (task.syllabus) {
-        await fetchTopicsForSyllabus(task.syllabus);
-      }
+      navigate(`/Tasks/task-form/${task.id}`);
     } else {
-      setEditMode(false);
-      setCurrentTask(null);
-      setFormData({
-        title: '',
-        description: '',
-        course: '',
-        syllabus: '',
-        topic: '',
-        task_type: 'assignment',
-        max_score: 100,
-        duration_minutes: 60,
-        status: 'active',
-        is_mandatory: false
-      });
+      navigate('/Tasks/task-form');
     }
-    setShowModal(true);
   };
 
   const handleCloseModal = () => {
-    setShowModal(false);
-    setEditMode(false);
-    setCurrentTask(null);
+    // Modal no longer used
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    });
+    // Form handling moved to TaskForm component
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      const payload = { ...formData };
-      if (!payload.syllabus) payload.syllabus = null;
-      if (!payload.topic) payload.topic = null;
-
-      if (editMode && currentTask) {
-        await axios.put(
-          `${API_BASE_URL}/api/tasks/${currentTask.id}/`,
-          payload,
-          { headers: getAuthHeaders() }
-        );
-        Swal.fire('Success', 'Task updated successfully', 'success');
-      } else {
-        await axios.post(
-          `${API_BASE_URL}/api/tasks/`,
-          payload,
-          { headers: getAuthHeaders() }
-        );
-        Swal.fire('Success', 'Task created successfully', 'success');
-      }
-      handleCloseModal();
-      fetchTasks(currentPage);
-    } catch (error) {
-      console.error('Error saving task:', error);
-      Swal.fire('Error', error.response?.data?.message || 'Failed to save task', 'error');
-    }
+    // Form submission moved to TaskForm component
   };
 
   const deleteConfirm = async (id) => {
@@ -295,7 +213,7 @@ const TaskManagement = () => {
 
       if (response.status === 200 || response.status === 204) {
         Swal.fire('Deleted!', 'Task deleted successfully.', 'success');
-        fetchTasks(currentPage);
+        fetchTasks();
       }
     } catch (error) {
       Swal.fire(
@@ -330,21 +248,10 @@ const TaskManagement = () => {
       sortable: true,
     },
     {
-      name: 'Type',
-      selector: (row) => row.task_type ?? '—',
+      name: 'Topic',
+      selector: (row) => row.topic_title ?? '—',
       sortable: true,
-      cell: (row) => (
-        <span className="badge bg-info">
-          {row.task_type || '—'}
-        </span>
-      ),
-      width: '110px'
-    },
-    {
-      name: 'Max Score',
-      selector: (row) => row.max_score ?? 0,
-      sortable: true,
-      width: '130px'
+      width: '200px'
     },
     {
       name: 'Status',
@@ -353,26 +260,12 @@ const TaskManagement = () => {
       cell: (row) => (
         <span className={`badge bg-${
           row.status === 'active' ? 'success' :
-          row.status === 'draft' ? 'warning' : 'secondary'
+          row.status === 'inactive' ? 'warning' : 'secondary'
         }`}>
           {row.status}
         </span>
       ),
       width: '100px'
-    },
-    {
-      name: 'Mandatory',
-      selector: (row) => row.is_mandatory ?? false,
-      sortable: true,
-      cell: (row) => (
-        row.is_mandatory ? (
-          <Badge bg="danger">Yes</Badge>
-        ) : (
-          <Badge bg="secondary">No</Badge>
-        )
-      ),
-      center: true,
-      width: '120px'
     },
     
     {
@@ -466,7 +359,6 @@ const TaskManagement = () => {
                 value={filterCourse}
                 onChange={(e) => {
                   setFilterCourse(e.target.value);
-                  setCurrentPage(1);
                 }}
               >
                 <option value="">All Courses</option>
@@ -483,11 +375,13 @@ const TaskManagement = () => {
                 value={filterTopic}
                 onChange={(e) => {
                   setFilterTopic(e.target.value);
-                  setCurrentPage(1);
                 }}
+                disabled={!filterCourse}
               >
-                <option value="">All Topics</option>
-                {allTopics.map((topic) => (
+                <option value="">
+                  {filterCourse ? 'All Topics' : 'Select course first'}
+                </option>
+                {filteredTopics.map((topic) => (
                   <option key={topic.id} value={topic.id}>
                     {topic.title}
                   </option>
@@ -502,7 +396,6 @@ const TaskManagement = () => {
                   setFilterCourse('');
                   setFilterTopic('');
                   setSearchQuery('');
-                  setCurrentPage(1);
                 }}
               >
                 <Icon name="x" className="me-1" /> Clear Filters
@@ -534,182 +427,13 @@ const TaskManagement = () => {
             data={tasks}
             columns={columns}
             customStyles={customStyles}
-            pagination
-            paginationServer
-            paginationTotalRows={totalCount}
-            paginationPerPage={perPage}
-            onChangePage={handlePageChange}
+            progressPending={loading}
+            fixedHeader
+            fixedHeaderScrollHeight="500px"
           />
         </Card>
       </Block>
 
-      {/* Task Modal */}
-      <Modal show={showModal} onHide={handleCloseModal} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>{editMode ? 'Edit Task' : 'Create New Task'}</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Title <span className="text-danger">*</span></Form.Label>
-              <Form.Control
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Course <span className="text-danger">*</span></Form.Label>
-              <Form.Select
-                name="course"
-                value={formData.course}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="">Select Course</option>
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Syllabus (Optional)</Form.Label>
-              <Form.Select
-                name="syllabus"
-                value={formData.syllabus}
-                onChange={handleInputChange}
-                disabled={!formData.course}
-              >
-                <option value="">Select Syllabus</option>
-                {syllabi.map((syllabus) => (
-                  <option key={syllabus.id} value={syllabus.id}>
-                    {syllabus.title}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Topic (Optional)</Form.Label>
-              <Form.Select
-                name="topic"
-                value={formData.topic}
-                onChange={handleInputChange}
-                disabled={!formData.syllabus}
-                size="8"
-                style={{
-                  maxHeight: '300px',
-                  overflowY: 'auto'
-                }}
-              >
-                <option value="">Select Topic</option>
-                {topics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>
-                    {topic.title}
-                  </option>
-                ))}
-              </Form.Select>
-              <small className="text-muted d-block mt-1">
-                {topics.length > 10 ? `Showing ${topics.length} topics - Use scroll to view all` : `${topics.length} topic(s) available`}
-              </small>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Task Type <span className="text-danger">*</span></Form.Label>
-              <Form.Select
-                name="task_type"
-                value={formData.task_type}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="assignment">Assignment</option>
-                <option value="quiz">Quiz</option>
-                <option value="exam">Exam</option>
-                <option value="project">Project</option>
-                <option value="lab">Lab</option>
-              </Form.Select>
-            </Form.Group>
-
-            <div className="row">
-              <div className="col-md-6">
-                <Form.Group className="mb-3">
-                  <Form.Label>Max Score <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="max_score"
-                    value={formData.max_score}
-                    onChange={handleInputChange}
-                    min="0"
-                    required
-                  />
-                </Form.Group>
-              </div>
-              <div className="col-md-6">
-                <Form.Group className="mb-3">
-                  <Form.Label>Duration (minutes) <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="duration_minutes"
-                    value={formData.duration_minutes}
-                    onChange={handleInputChange}
-                    min="0"
-                    required
-                  />
-                </Form.Group>
-              </div>
-            </div>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Status <span className="text-danger">*</span></Form.Label>
-              <Form.Select
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="draft">Draft</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                name="is_mandatory"
-                label="Mandatory Task"
-                checked={formData.is_mandatory}
-                onChange={handleInputChange}
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              {editMode ? 'Update Task' : 'Create Task'}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
     </Layout>
   );
 };

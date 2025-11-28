@@ -1,18 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Card, Row, Col, Spinner, Badge, Table } from "react-bootstrap";
+import { Card, Row, Col, Spinner, Badge, Table, Button } from "react-bootstrap";
 import Swal from "sweetalert2";
 import axios from "axios";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 import Layout from "../../layout/default";
 import Block from "../../components/Block/Block";
 import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
+import CertificateTemplate from "./CertificateTemplate";
 
 function CertificateView() {
   const { id } = useParams();
   const [certificate, setCertificate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const certificateRef = useRef(null);
   const authToken = localStorage.getItem("authToken");
 
   useEffect(() => {
@@ -36,6 +41,86 @@ function CertificateView() {
     getCertificate();
   }, [id, authToken]);
 
+  /**
+   * Download certificate as PDF from backend
+   * Uses the backend PDF generation with logos
+   */
+  const downloadCertificateAsPDF = async () => {
+    setDownloading(true);
+    try {
+      // Try to fetch from backend PDF generation endpoint
+      const response = await axios.get(
+        `${API_BASE_URL}/api/admin/cert/certifications/${id}/download-pdf/`,
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+          responseType: "blob",
+        }
+      );
+
+      // Create blob URL and download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${certificate.title}-Certificate.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire("Success", "Certificate downloaded successfully.", "success");
+    } catch (error) {
+      console.error("Error downloading certificate:", error);
+
+      // Fallback: Use client-side generation if backend fails
+      try {
+        if (!certificateRef.current) {
+          Swal.fire("Error", "Failed to download certificate.", "error");
+          return;
+        }
+
+        const canvas = await html2canvas(certificateRef.current, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+        });
+
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4",
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`${certificate.title}-Certificate.pdf`);
+
+        Swal.fire("Success", "Certificate downloaded successfully (client-side).", "success");
+      } catch (fallbackError) {
+        console.error("Fallback download error:", fallbackError);
+        Swal.fire("Error", "Failed to download certificate.", "error");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  /**
+   * Print certificate
+   */
+  const printCertificate = () => {
+    if (!certificateRef.current) return;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(certificateRef.current.outerHTML);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <Layout title="View Certificate" content="container">
       <Block.Head>
@@ -55,13 +140,28 @@ function CertificateView() {
             </nav>
           </Block.HeadContent>
           <Block.HeadContent>
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 flex-wrap">
               <Link to="/Certificates/list-certificate" className="btn btn-outline-secondary">
                 <Icon name="arrow-left me-1" /> Back
               </Link>
               <Link to={`/Certificates/update-certificate/${id}`} className="btn btn-primary">
                 <Icon name="edit me-1" /> Edit
               </Link>
+              <Button
+                variant="success"
+                onClick={downloadCertificateAsPDF}
+                disabled={downloading || !certificate}
+              >
+                <Icon name="download me-1" />
+                {downloading ? "Downloading..." : "Download PDF"}
+              </Button>
+              <Button
+                variant="info"
+                onClick={printCertificate}
+                disabled={!certificate}
+              >
+                <Icon name="printer me-1" /> Print
+              </Button>
             </div>
           </Block.HeadContent>
         </Block.HeadBetween>
@@ -74,6 +174,32 @@ function CertificateView() {
           </div>
         ) : certificate ? (
           <>
+            {/* Certificate Preview */}
+            <Card className="mb-4">
+              <Card.Header className="bg-light">
+                <h5 className="mb-0">Certificate Preview</h5>
+              </Card.Header>
+              <Card.Body className="p-0" style={{ backgroundColor: "#f5f5f5" }}>
+                <CertificateTemplate
+                  ref={certificateRef}
+                  studentName={certificate.student_name || "Student Name"}
+                  courseName={certificate.course_title || certificate.title}
+                  completionDate={new Date(certificate.created_at || Date.now()).toLocaleDateString(
+                    "en-US",
+                    {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    }
+                  )}
+                  collegeName={certificate.college_name || "Z1 Education"}
+                  collegeLogo={certificate.college_logo}
+                  certificateNumber={certificate.certificate_number || `CERT-${id}`}
+                  principalName={certificate.principal_name || "Director"}
+                />
+              </Card.Body>
+            </Card>
+
             {/* Certificate Header Card */}
             <Card className="mb-4">
               <Card.Body>
@@ -141,7 +267,7 @@ function CertificateView() {
                       </Card.Header>
                       <Card.Body>
                         <p className="fw-bold mb-3">{question.text}</p>
-                        
+
                         <h6 className="mb-2">Options:</h6>
                         <Table responsive striped>
                           <thead>

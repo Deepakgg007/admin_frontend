@@ -123,23 +123,6 @@ function ChallengeList() {
       sortable: true,
     },
     {
-      name: 'Success Rate',
-      selector: (row) => row.success_rate,
-      sortable: true,
-      cell: (row) => `${row.success_rate.toFixed(1)}%`,
-    },
-    {
-      name: 'Submissions',
-      selector: (row) => row.total_submissions,
-      sortable: true,
-      cell: (row) => (
-        <div className="text-center">
-          <div>{row.total_submissions}</div>
-          <small className="text-success">✓ {row.accepted_submissions}</small>
-        </div>
-      ),
-    },
-    {
       name: 'Actions',
       cell: (row) => (
         <div className="d-flex gap-1">

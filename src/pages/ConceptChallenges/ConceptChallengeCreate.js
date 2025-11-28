@@ -27,6 +27,7 @@ function ConceptChallengeCreate() {
   });
   const [hintVideoFile, setHintVideoFile] = useState(null);
   const [concepts, setConcepts] = useState([]);
+  const [allConcepts, setAllConcepts] = useState([]); // Store all concepts for lookup
   const [challenges, setChallenges] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,21 @@ function ConceptChallengeCreate() {
           params: { is_active: true },
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        setConcepts(conceptsRes.data.results || conceptsRes.data || []);
+        const fetchedConcepts = conceptsRes.data.results || conceptsRes.data || [];
+
+        // Store all concepts for later use
+        setAllConcepts(fetchedConcepts);
+
+        // Remove duplicates by concept name - keep only unique concept names for display
+        const uniqueConceptsMap = new Map();
+        fetchedConcepts.forEach(concept => {
+          if (!uniqueConceptsMap.has(concept.name)) {
+            uniqueConceptsMap.set(concept.name, concept);
+          }
+        });
+        const uniqueConcepts = Array.from(uniqueConceptsMap.values());
+
+        setConcepts(uniqueConcepts);
 
         // Fetch challenges
         const challengesRes = await axios.get(`${API_BASE_URL}/api/challenges/`, {
@@ -81,30 +96,50 @@ function ConceptChallengeCreate() {
     }
 
     try {
-      const data = new FormData();
-      Object.keys(formData).forEach((key) => {
-        if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
-          data.append(key, formData[key]);
-        }
-      });
-      if (hintVideoFile) data.append('hint_video_file', hintVideoFile);
+      // Find the selected concept to get its name
+      const selectedConcept = concepts.find(c => c.id === parseInt(formData.concept));
+      if (!selectedConcept) {
+        Swal.fire('Error', 'Please select a valid concept.', 'error');
+        setLoading(false);
+        return;
+      }
 
-      await axios.post(`${API_BASE_URL}/api/concept-challenges/`, data, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'multipart/form-data',
-        },
+      // Find all concepts with the same name across all companies
+      const matchingConcepts = allConcepts.filter(c => c.name === selectedConcept.name);
+
+      // Create concept-challenge for each matching concept
+      const promises = matchingConcepts.map((concept) => {
+        const data = new FormData();
+        data.append('concept', concept.id);
+        data.append('challenge', formData.challenge);
+        data.append('order', formData.order);
+        data.append('is_active', formData.is_active);
+        data.append('weight', formData.weight);
+        if (formData.custom_time_limit) data.append('custom_time_limit', formData.custom_time_limit);
+        if (formData.hint_video_title) data.append('hint_video_title', formData.hint_video_title);
+        if (formData.hint_video_description) data.append('hint_video_description', formData.hint_video_description);
+        if (formData.hint_youtube_url) data.append('hint_youtube_url', formData.hint_youtube_url);
+        if (hintVideoFile) data.append('hint_video_file', hintVideoFile);
+
+        return axios.post(`${API_BASE_URL}/api/concept-challenges/`, data, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        });
       });
+
+      await Promise.all(promises);
 
       Swal.fire({
         icon: 'success',
         title: 'Success!',
-        text: 'Concept challenge created successfully.',
-        timer: 1500,
+        text: `Concept challenge created for ${matchingConcepts.length} ${matchingConcepts.length === 1 ? 'company' : 'companies'}.`,
+        timer: 2000,
         showConfirmButton: false,
       });
 
-      setTimeout(() => navigate('/ConceptChallenges/list-concept-challenge'), 1600);
+      setTimeout(() => navigate('/ConceptChallenges/list-concept-challenge'), 2100);
     } catch (error) {
       console.error(error.response?.data);
       if (error.response?.status === 400) {
@@ -152,7 +187,7 @@ function ConceptChallengeCreate() {
                       <option value="">Select Concept</option>
                       {concepts.map((concept) => (
                         <option key={concept.id} value={concept.id}>
-                          {concept.company_name} - {concept.name}
+                          {concept.name}
                         </option>
                       ))}
                     </Form.Select>

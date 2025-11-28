@@ -43,7 +43,7 @@ function JobCreate() {
   const fetchCompanies = async () => {
     const authToken = localStorage.getItem('authToken');
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/companies/`, {
+      const response = await axios.get(`${API_BASE_URL}/api/company/companies/`, {
         headers: { Authorization: `Bearer ${authToken}` },
         params: { page_size: 1000 },
       });
@@ -87,7 +87,7 @@ function JobCreate() {
       if (!data.application_url) data.application_url = null;
       if (!data.contact_email) data.contact_email = null;
 
-      await axios.post(`${API_BASE_URL}/api/jobs/`, data, {
+      await axios.post(`${API_BASE_URL}/api/company/jobs/`, data, {
         headers: {
           Authorization: `Bearer ${authToken}`,
           'Content-Type': 'application/json',

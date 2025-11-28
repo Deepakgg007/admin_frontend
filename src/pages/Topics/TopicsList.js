@@ -19,9 +19,6 @@ function TopicsList() {
   const [courseFilter, setCourseFilter] = useState("");
   const [creatorFilter, setCreatorFilter] = useState("all");
   const [courses, setCourses] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
   const [selectedRows, setSelectedRows] = useState([]);
 
   const authToken = localStorage.getItem("authToken");
@@ -47,12 +44,11 @@ function TopicsList() {
 
   // Fetch topics from API
   const fetchTopics = useCallback(
-    async (page = 1) => {
+    async () => {
       setLoading(true);
       try {
         const params = {
-          page,
-          per_page: perPage,
+          per_page: 1000,
           search: searchQuery
         };
 
@@ -78,15 +74,9 @@ function TopicsList() {
           data = data.filter(topic => topic.creator_type === creatorFilter);
         }
 
-        const total = data.length;
-
-
         setTopics(data);
-        setCurrentPage(page);
-        setTotalCount(total);
       } catch (error) {
         setTopics([]);
-        setTotalCount(0);
 
         const backendMessage =
           error.response?.data?.error ||
@@ -97,31 +87,23 @@ function TopicsList() {
         setLoading(false);
       }
     },
-    [perPage, searchQuery, courseFilter, creatorFilter, authToken]
+    [searchQuery, courseFilter, creatorFilter, authToken]
   );
 
-  // Fetch topics when page changes
+  // Fetch topics when filters change
   useEffect(() => {
-    fetchTopics(currentPage);
-  }, [currentPage, fetchTopics]);
+    fetchTopics();
+  }, [fetchTopics]);
 
-  // When creator filter changes, reset to page 1 and fetch
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [creatorFilter]);
-
-  const handlePageChange = (page) => setCurrentPage(page);
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1);
   };
   const handleCourseFilterChange = (e) => {
     setCourseFilter(e.target.value);
-    setCurrentPage(1);
   };
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchTopics(1);
+    fetchTopics();
   };
   const handleSelectedRowsChange = ({ selectedRows }) =>
     setSelectedRows(selectedRows);
@@ -145,7 +127,7 @@ function TopicsList() {
 
       if (response.status === 200 || response.status === 204) {
         Swal.fire("Deleted!", "Topic deleted successfully.", "success");
-        fetchTopics(currentPage);
+        fetchTopics();
       } else {
         Swal.fire("Error!", response.data?.message || "Failed to delete.", "error");
       }
@@ -400,11 +382,6 @@ function TopicsList() {
             columns={columns}
             customStyles={customStyles}
             progressPending={loading}
-            pagination
-            paginationServer
-            paginationTotalRows={totalCount}
-            paginationPerPage={perPage}
-            onChangePage={handlePageChange}
             fixedHeader
             fixedHeaderScrollHeight="500px"
           />

@@ -287,13 +287,11 @@ const TaskDetail = () => {
             <h5>Task Details</h5>
             <p><strong>Course:</strong> {task.course_title || 'N/A'}</p>
             <p><strong>Topic:</strong> {task.topic_title || 'N/A'}</p>
-            <p><strong>Max Score:</strong> {task.max_score} | <strong>Duration:</strong> {task.duration_minutes} mins</p>
             <div className="d-flex gap-2">
               <Link to={`/Tasks/task-management`} className="btn btn-primary btn-sm">
                 <Icon name="arrow-left" /> Back to Tasks
               </Link>
               <Badge bg={task.status === 'active' ? 'success' : 'secondary'}>{task.status}</Badge>
-              {task.is_mandatory && <Badge bg="danger">Mandatory</Badge>}
             </div>
           </Card.Body>
         </Card>
@@ -398,7 +396,10 @@ const TaskDetail = () => {
                         {item.type === 'document' && (
                           <div>
                             <small className="text-muted">{item.object.description}</small>
-                            <div className="mt-2">
+                            <div className="mt-2 d-flex gap-2">
+                              <Link to={`/Tasks/document-form/${taskId}?edit=${item.id}`} className="btn btn-sm btn-outline-primary">
+                                <Icon name="edit" /> Edit
+                              </Link>
                               <Button variant="outline-danger" size="sm" onClick={() => handleDelete(item)}>
                                 <Icon name="trash" /> Delete
                               </Button>
@@ -411,7 +412,10 @@ const TaskDetail = () => {
                           <div>
                             <small className="text-muted">{item.object.description}</small>
                             {item.object.youtube_url && <div className="text-muted mt-1"><small>YouTube: {item.object.youtube_url}</small></div>}
-                            <div className="mt-2">
+                            <div className="mt-2 d-flex gap-2">
+                              <Link to={`/Tasks/video-form/${taskId}?edit=${item.id}`} className="btn btn-sm btn-outline-primary">
+                                <Icon name="edit" /> Edit
+                              </Link>
                               <Button variant="outline-danger" size="sm" onClick={() => handleDelete(item)}>
                                 <Icon name="trash" /> Delete
                               </Button>
@@ -455,10 +459,10 @@ const TaskDetail = () => {
               <Link to={`/Tasks/question-form/${taskId}`} className="btn btn-primary">
                 <Icon name="help-circle" /> Add Question
               </Link>
-              <Link to={`/Courses/manage-task-content/${taskId}?tab=documents`} className="btn btn-warning">
+              <Link to={`/Tasks/document-form/${taskId}`} className="btn btn-warning">
                 <Icon name="file-text" /> Add Document
               </Link>
-              <Link to={`/Courses/manage-task-content/${taskId}?tab=videos`} className="btn btn-success">
+              <Link to={`/Tasks/video-form/${taskId}`} className="btn btn-success">
                 <Icon name="video" /> Add Video
               </Link>
               <Link to={`/Tasks/richtext-page-editor/${taskId}`} className="btn btn-secondary">

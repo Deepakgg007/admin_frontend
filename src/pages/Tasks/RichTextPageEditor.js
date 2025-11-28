@@ -106,6 +106,7 @@ const RichTextPageEditor = () => {
     order: 0
   });
   const [blocks, setBlocks] = useState([]);
+  const [deletedBlocks, setDeletedBlocks] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -121,6 +122,9 @@ const RichTextPageEditor = () => {
     fetchTask();
     if (isEdit) {
       fetchPage();
+    } else {
+      // Reset deleted blocks when creating a new page
+      setDeletedBlocks([]);
     }
   }, [taskId, pageId]);
 
@@ -149,6 +153,9 @@ const RichTextPageEditor = () => {
         slug: page.slug,
         order: page.order || 0
       });
+
+      // Reset deleted blocks when loading the page
+      setDeletedBlocks([]);
 
       // Combine all blocks and sort by order
       const allBlocks = [];
@@ -226,6 +233,11 @@ const RichTextPageEditor = () => {
   };
 
   const removeBlock = (id) => {
+    const blockToRemove = blocks.find(block => block.id === id);
+    if (blockToRemove && blockToRemove.existingId) {
+      // Track this block for deletion
+      setDeletedBlocks([...deletedBlocks, blockToRemove]);
+    }
     setBlocks(blocks.filter(block => block.id !== id));
   };
 
@@ -250,10 +262,6 @@ const RichTextPageEditor = () => {
 
     if (!pageData.title.trim()) {
       newErrors.title = 'Title is required';
-    }
-
-    if (!pageData.slug.trim()) {
-      newErrors.slug = 'Slug is required';
     }
 
     blocks.forEach((block, index) => {
@@ -308,34 +316,65 @@ const RichTextPageEditor = () => {
 
       const savedPageId = pageResponse.data.id;
 
-      // Delete existing blocks if editing
-      if (isEdit) {
-        const deletePromises = [];
+      // Delete blocks that were removed
+      const deletePromises = [];
+      deletedBlocks.forEach(block => {
+        const endpoint = block.type === 'text'
+          ? `/api/task-text-blocks/${block.existingId}/`
+          : block.type === 'code'
+          ? `/api/task-code-blocks/${block.existingId}/`
+          : `/api/task-video-blocks/${block.existingId}/`;
 
-        // Get existing block IDs from the fetched page
-        blocks.forEach(block => {
-          if (block.existingId) {
-            const endpoint = block.type === 'text'
-              ? `/api/task-text-blocks/${block.existingId}/`
-              : block.type === 'code'
-              ? `/api/task-code-blocks/${block.existingId}/`
-              : `/api/task-video-blocks/${block.existingId}/`;
+        deletePromises.push(
+          axios.delete(`${API_BASE_URL}${endpoint}`, { headers: getAuthHeaders() })
+            .catch(err => console.warn('Block delete failed:', err))
+        );
+      });
 
-            deletePromises.push(
-              axios.delete(`${API_BASE_URL}${endpoint}`, { headers: getAuthHeaders() })
-                .catch(err => console.warn('Block delete failed:', err))
-            );
-          }
-        });
-
+      if (deletePromises.length > 0) {
         await Promise.all(deletePromises);
       }
 
-      // Create all blocks
-      const blockPromises = blocks.map((block, index) => {
+      // Separate blocks into new and existing
+      const newBlocks = blocks.filter(block => !block.existingId);
+      const existingBlocks = blocks.filter(block => block.existingId);
+
+      // Update existing blocks with new order and content
+      const updatePromises = existingBlocks.map((block, index) => {
+        const blockPayload = {
+          order: index
+        };
+
+        let endpoint;
+        if (block.type === 'text') {
+          endpoint = `${API_BASE_URL}/api/task-text-blocks/${block.existingId}/`;
+          blockPayload.content = block.content;
+        } else if (block.type === 'code') {
+          endpoint = `${API_BASE_URL}/api/task-code-blocks/${block.existingId}/`;
+          blockPayload.code = block.code;
+          blockPayload.language = block.language;
+        } else if (block.type === 'video') {
+          endpoint = `${API_BASE_URL}/api/task-video-blocks/${block.existingId}/`;
+          blockPayload.title = block.title;
+          blockPayload.youtube_url = block.youtube_url;
+          blockPayload.description = block.description;
+        }
+
+        return axios.patch(endpoint, blockPayload, { headers: getAuthHeaders() });
+      });
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+
+      // Create new blocks
+      const createPromises = newBlocks.map((block, index) => {
+        // Calculate the correct order: new blocks follow existing ones in the UI order
+        const blockIndex = blocks.indexOf(block);
+
         const blockPayload = {
           page: savedPageId,
-          order: index
+          order: blockIndex
         };
 
         let endpoint;
@@ -356,7 +395,9 @@ const RichTextPageEditor = () => {
         return axios.post(endpoint, blockPayload, { headers: getAuthHeaders() });
       });
 
-      await Promise.all(blockPromises);
+      if (createPromises.length > 0) {
+        await Promise.all(createPromises);
+      }
 
       Swal.fire({
         icon: 'success',
@@ -365,6 +406,8 @@ const RichTextPageEditor = () => {
         timer: 2000
       });
 
+      // Reset deleted blocks after successful save
+      setDeletedBlocks([]);
       navigate(`/Tasks/task-detail/${taskId}`);
     } catch (error) {
       console.error('Error saving page:', error);
@@ -426,35 +469,6 @@ const RichTextPageEditor = () => {
                       placeholder="Enter page title"
                     />
                     <Form.Control.Feedback type="invalid">{errors.title}</Form.Control.Feedback>
-                  </Form.Group>
-
-                  <Form.Group className="mb-3">
-                    <Form.Label>Slug (URL-friendly) <span className="text-danger">*</span></Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={pageData.slug}
-                      onChange={(e) => handlePageDataChange('slug', e.target.value)}
-                      isInvalid={!!errors.slug}
-                      placeholder="page-slug"
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.slug}</Form.Control.Feedback>
-                    <Form.Text className="text-muted">
-                      Auto-generated from title, but you can customize it
-                    </Form.Text>
-                  </Form.Group>
-
-                  <Form.Group className="mb-3">
-                    <Form.Label>Display Order</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={pageData.order}
-                      onChange={(e) => handlePageDataChange('order', e.target.value)}
-                      placeholder="0"
-                      min="0"
-                    />
-                    <Form.Text className="text-muted">
-                      Lower numbers appear first
-                    </Form.Text>
                   </Form.Group>
                 </Card.Body>
               </Card>

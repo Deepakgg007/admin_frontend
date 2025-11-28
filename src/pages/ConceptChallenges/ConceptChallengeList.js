@@ -56,7 +56,7 @@ function ConceptChallengeList() {
     async (page = 1) => {
       setLoading(true);
       try {
-        const params = { page, page_size: perPage };
+        const params = { page, page_size: 10000 }; // Fetch all to filter client-side
         if (filterCompany) params.company = filterCompany;
         if (filterConcept) params.concept = filterConcept;
 
@@ -65,12 +65,28 @@ function ConceptChallengeList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        const data = response.data.results || response.data;
-        const total = response.data.count || data.length;
+        let data = response.data.results || response.data;
+        data = Array.isArray(data) ? data : [];
 
-        setConceptChallenges(Array.isArray(data) ? data : []);
+        // Group by concept_name and challenge_id to show unique combinations only
+        const uniqueMap = new Map();
+        data.forEach(item => {
+          const key = `${item.concept_name}_${item.challenge}`;
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
+          }
+        });
+
+        const uniqueData = Array.from(uniqueMap.values());
+
+        // Implement client-side pagination
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage;
+        const paginatedData = uniqueData.slice(startIndex, endIndex);
+
+        setConceptChallenges(paginatedData);
         setCurrentPage(page);
-        setTotalCount(total);
+        setTotalCount(uniqueData.length);
       } catch (error) {
         setConceptChallenges([]);
         setTotalCount(0);

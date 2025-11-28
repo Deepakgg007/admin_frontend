@@ -38,11 +38,13 @@ import TopicsList from "../pages/Topics/TopicsList";
 import TopicView from "../pages/Topics/TopicView";
 import TopicUpdate from "../pages/Topics/TopicUpdate";
 
-import TaskContentManager from "../pages/Tasks/TaskContentManager";
 import TaskManagement from "../pages/Tasks/TaskManagement";
+import TaskForm from "../pages/Tasks/TaskForm";
 import TaskDetail from "../pages/Tasks/TaskDetail";
 import QuestionForm from "../pages/Tasks/QuestionForm";
 import RichTextPageEditor from "../pages/Tasks/RichTextPageEditor";
+import DocumentForm from "../pages/Tasks/DocumentForm";
+import VideoForm from "../pages/Tasks/VideoForm";
 
 import CompanyList from "../pages/Companies/CompanyList";
 import CompanyCreate from "../pages/Companies/CompanyCreate";
@@ -109,7 +111,6 @@ function Router() {
           <Route path="list-course" element={<AdminRoute><CourseList /></AdminRoute>} />
           <Route path="view-course/:id" element={<AdminRoute><CourseView /></AdminRoute>} />
           <Route path="update-course/:id" element={<AdminRoute><CourseUpdate /></AdminRoute>} />
-          <Route path="manage-task-content/:taskId" element={<AdminRoute><TaskContentManager /></AdminRoute>} />
         </Route>
 
         <Route path="Syllabus">
@@ -129,10 +130,14 @@ function Router() {
 
         <Route path="Tasks">
           <Route path="task-management" element={<AdminRoute><TaskManagement /></AdminRoute>} />
+          <Route path="task-form" element={<AdminRoute><TaskForm /></AdminRoute>} />
+          <Route path="task-form/:taskId" element={<AdminRoute><TaskForm /></AdminRoute>} />
           <Route path="task-detail/:taskId" element={<AdminRoute><TaskDetail /></AdminRoute>} />
           <Route path="question-form/:taskId" element={<AdminRoute><QuestionForm /></AdminRoute>} />
           <Route path="richtext-page-editor/:taskId" element={<AdminRoute><RichTextPageEditor /></AdminRoute>} />
           <Route path="richtext-page-editor/:taskId/:pageId" element={<AdminRoute><RichTextPageEditor /></AdminRoute>} />
+          <Route path="document-form/:taskId" element={<AdminRoute><DocumentForm /></AdminRoute>} />
+          <Route path="video-form/:taskId" element={<AdminRoute><VideoForm /></AdminRoute>} />
         </Route>
 
         <Route path="Companies">

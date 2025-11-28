@@ -297,7 +297,7 @@ function ChallengeCreate() {
                       </Form.Group>
                     </Col>
 
-                    <Col md={6}>
+                    <Col md={12}>
                       <Form.Group>
                         <Form.Label>Category <span className="text-danger">*</span></Form.Label>
                         <Form.Select name="category" value={formData.category} onChange={handleChange} required>
@@ -307,19 +307,6 @@ function ChallengeCreate() {
                             </option>
                           ))}
                         </Form.Select>
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label>Tags (comma-separated)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="tags"
-                          value={formData.tags}
-                          onChange={handleChange}
-                          placeholder="array, loop, sorting"
-                        />
                       </Form.Group>
                     </Col>
 

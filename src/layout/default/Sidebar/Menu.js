@@ -198,7 +198,7 @@ function Menu() {
         <MenuItemLink icon="notes-alt" text="Topics" to="/Topics/list-topic" />
       </MenuItem>
       <MenuItem>
-        <MenuItemLink icon="check-circle" text="Tasks" to="/Tasks/task-management" />
+        <MenuItemLink icon="check-circle" text="Tasks Content" to="/Tasks/task-management" />
       </MenuItem>
 
        <MenuHeading text="Coding Challenges" />

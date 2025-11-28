@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Card, Form, Row, Col, Button, Spinner } from 'react-bootstrap';
+import { Card, Form, Row, Col, Button, Spinner, Dropdown } from 'react-bootstrap';
 
 import Layout from '../../layout/default';
 import Block from '../../components/Block/Block';
@@ -13,7 +13,7 @@ function ConceptCreate() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    company: '',
+    companies: [], // Changed to array for multiple companies
     name: '',
     description: '',
     difficulty_level: 'INTERMEDIATE',
@@ -62,20 +62,40 @@ function ConceptCreate() {
       return;
     }
 
+    if (formData.companies.length === 0) {
+      Swal.fire('Validation Error', 'Please select at least one company.', 'error');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await axios.post(`${API_BASE_URL}/api/concepts/`, formData, {
-        headers: { Authorization: `Bearer ${authToken}` },
+      // Create concept for each selected company
+      const promises = formData.companies.map((companyId) => {
+        const conceptData = {
+          company: companyId,
+          name: formData.name,
+          description: formData.description,
+          difficulty_level: formData.difficulty_level,
+          estimated_time_minutes: formData.estimated_time_minutes,
+          order: formData.order,
+          is_active: formData.is_active,
+        };
+        return axios.post(`${API_BASE_URL}/api/concepts/`, conceptData, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
       });
+
+      await Promise.all(promises);
 
       Swal.fire({
         icon: 'success',
         title: 'Success!',
-        text: 'Concept created successfully.',
-        timer: 1500,
+        text: `Concept created successfully for ${formData.companies.length} ${formData.companies.length === 1 ? 'company' : 'companies'}.`,
+        timer: 2000,
         showConfirmButton: false,
       });
 
-      setTimeout(() => navigate('/Concepts/list-concept'), 1600);
+      setTimeout(() => navigate('/Concepts/list-concept'), 2100);
     } catch (error) {
       console.error(error.response?.data);
       if (error.response?.status === 400) {
@@ -112,22 +132,63 @@ function ConceptCreate() {
               <Row className="g-3">
                 <Col md={6}>
                   <Form.Group>
-                    <Form.Label>Company <span className="text-danger">*</span></Form.Label>
-                    <Form.Select
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
-                      isInvalid={!!errors.company}
-                      required
-                    >
-                      <option value="">Select Company</option>
-                      {companies.map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Form.Control.Feedback type="invalid">{errors.company}</Form.Control.Feedback>
+                    <Form.Label>Companies <span className="text-danger">*</span></Form.Label>
+                    <Dropdown autoClose="outside">
+                      <Dropdown.Toggle variant="outline-secondary" className="w-100 text-start d-flex justify-content-between align-items-center">
+                        {formData.companies.length > 0
+                          ? `${formData.companies.length} ${formData.companies.length === 1 ? 'company' : 'companies'} selected`
+                          : 'Select companies'}
+                      </Dropdown.Toggle>
+
+                      <Dropdown.Menu className="w-100" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {companies.length > 0 ? (
+                          companies.map((company) => (
+                            <Dropdown.Item
+                              key={company.id}
+                              as="div"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-0"
+                            >
+                              <Form.Check
+                                type="checkbox"
+                                id={`company-${company.id}`}
+                                label={company.name}
+                                checked={formData.companies.includes(company.id)}
+                                onChange={(e) => {
+                                  const companyId = company.id;
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      companies: [...formData.companies, companyId]
+                                    });
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      companies: formData.companies.filter(id => id !== companyId)
+                                    });
+                                  }
+                                }}
+                                className="px-3 py-2"
+                              />
+                            </Dropdown.Item>
+                          ))
+                        ) : (
+                          <Dropdown.Item disabled>No companies available</Dropdown.Item>
+                        )}
+                      </Dropdown.Menu>
+                    </Dropdown>
+                    {formData.companies.length > 0 && (
+                      <div className="mt-2">
+                        <small className="text-success">
+                          <Icon name="check-circle" /> {formData.companies.length} {formData.companies.length === 1 ? 'company' : 'companies'} selected
+                        </small>
+                      </div>
+                    )}
+                    {errors.companies && (
+                      <div className="text-danger mt-1">
+                        <small>{errors.companies}</small>
+                      </div>
+                    )}
                   </Form.Group>
                 </Col>
 

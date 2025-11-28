@@ -37,7 +37,7 @@ function JobList() {
         if (filterExperience) params.experience_level = filterExperience;
         if (filterActive) params.is_active = filterActive;
 
-        const response = await axios.get(`${API_BASE_URL}/api/jobs/`, {
+        const response = await axios.get(`${API_BASE_URL}/api/company/jobs/`, {
           params,
           headers: { Authorization: `Bearer ${authToken}` },
         });
@@ -107,7 +107,7 @@ function JobList() {
 
     if (result.isConfirmed) {
       try {
-        await axios.delete(`${API_BASE_URL}/api/jobs/${slug}/`, {
+        await axios.delete(`${API_BASE_URL}/api/company/jobs/${slug}/`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         Swal.fire("Deleted!", "Job has been deleted.", "success");
@@ -201,7 +201,7 @@ function JobList() {
       sortable: true,
       cell: (row) => {
         if (row.salary_min && row.salary_max) {
-          return `$${row.salary_min.toLocaleString()} - $${row.salary_max.toLocaleString()}`;
+          return `₹${row.salary_min.toLocaleString()} - ₹${row.salary_max.toLocaleString()}`;
         }
         return "Not Specified";
       },

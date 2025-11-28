@@ -82,22 +82,22 @@ function Header() {
 
                         <Dropdown as={QuickNavItem}>
                             <Dropdown.Toggle bsPrefix as={CustomDropdownToggle}>
-                                
+
                                 <div className="d-none d-sm-flex">
                                     <Media shape="circle">
-                                        <Image src='/images/haegl.png' staticImage thumbnail/>
+                                        <Image src='/z1logo.png' staticImage thumbnail/>
                                     </Media>
                                 </div>
                             </Dropdown.Toggle>
-                            <Dropdown.Menu className="dropdown-menu-md" as={CustomDropdownMenu}> 
+                            <Dropdown.Menu className="dropdown-menu-md" as={CustomDropdownMenu}>
                                 <div className="dropdown-content dropdown-content-x-lg py-3 border-bottom border-light">
                                     <MediaGroup>
                                         <Media size="xl" shape="circle">
-                                            <Image src='/images/haegl.png' staticImage thumbnail/>
+                                            <Image src='/z1logo.png' staticImage thumbnail/>
                                         </Media>
                                         <MediaText>
-                                            <div className="lead-text">Haegl Geteducate</div>
-                                            <span className="sub-text">Admin</span>
+                                            <div className="lead-text">Z1 Admin</div>
+                                            <span className="sub-text">Admin Dashboard</span>
                                         </MediaText>
                                     </MediaGroup>
                                 </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Card, Row, Col, Badge, Table, ProgressBar } from "react-bootstrap";
+import { Card, Row, Col, Badge, Table, ProgressBar, Form } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import axios from "axios";
-import { Bar, Line, Pie, Doughnut } from "react-chartjs-2";
+import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,30 +39,91 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [colleges, setColleges] = useState([]);
+  const [selectedCollege, setSelectedCollege] = useState("");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const authToken = localStorage.getItem("authToken") || localStorage.getItem("access_token");
 
   useEffect(() => {
     fetchDashboardData();
+    fetchColleges();
   }, []);
 
-  const fetchDashboardData = async () => {
+  useEffect(() => {
+    if (!isInitialLoad && selectedCollege !== "") {
+      fetchDashboardData(false); // Don't show loading spinner for filter changes
+    } else if (selectedCollege === "" && !isInitialLoad) {
+      fetchDashboardData(false); // Fetch all when filter is cleared
+    }
+  }, [selectedCollege]);
+
+  const fetchDashboardData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      } else {
+        setIsFiltering(true);
+      }
+      setIsInitialLoad(false);
+
+      const params = {};
+      if (selectedCollege) {
+        params.college = selectedCollege;
+      }
+
+      console.log('Fetching dashboard with params:', params);
+
       const response = await axios.get(`${API_BASE_URL}/api/admin/dashboard/analytics/`, {
+        params,
         headers: { Authorization: `Bearer ${authToken}` },
       });
 
       // Extract data from StandardResponseMixin format: { success: true, data: {...}, message: "..." }
       const data = response.data?.data || response.data;
       console.log('📊 Dashboard Data:', data);
+      console.log('Top Students:', data?.top_students);
+      console.log('Top Cert Students:', data?.top_cert_students);
       setDashboardData(data);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load dashboard data");
       console.error("Dashboard Error:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      } else {
+        setIsFiltering(false);
+      }
+    }
+  };
+
+  const fetchColleges = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/colleges/`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      console.log('Colleges API Response:', response.data);
+
+      // Handle different response formats
+      let collegeData = [];
+      if (response.data?.data?.results) {
+        collegeData = response.data.data.results;
+      } else if (response.data?.results) {
+        collegeData = response.data.results;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        collegeData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        collegeData = response.data;
+      }
+
+      console.log('Processed colleges:', collegeData);
+      // Ensure collegeData is an array
+      setColleges(Array.isArray(collegeData) ? collegeData : []);
+    } catch (err) {
+      console.error("Error fetching colleges:", err);
+      setColleges([]); // Set to empty array on error
     }
   };
 
@@ -175,11 +237,12 @@ function Dashboard() {
     ],
   };
 
-  // Top courses doughnut chart
+  // Top courses bar chart
   const topCoursesData = {
     labels: summary?.top_courses_list?.slice(0, 5).map((course) => course.title) || [],
     datasets: [
       {
+        label: "Students Enrolled",
         data: summary?.top_courses_list?.slice(0, 5).map((course) => course.enrollments) || [],
         backgroundColor: [
           "rgba(79, 70, 229, 0.8)",
@@ -195,7 +258,9 @@ function Dashboard() {
           "rgba(16, 185, 129, 1)",
           "rgba(59, 130, 246, 1)",
         ],
-        borderWidth: 3,
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
       },
     ],
   };
@@ -250,74 +315,100 @@ function Dashboard() {
     },
   };
 
-  const doughnutOptions = {
+  const topCoursesChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "60%",
+    indexAxis: 'y',
     plugins: {
       legend: {
-        position: "bottom",
-        labels: {
-          padding: 15,
-          usePointStyle: true,
-          font: {
-            size: 11,
-          },
-        },
+        display: false,
       },
       tooltip: {
         backgroundColor: "rgba(0, 0, 0, 0.8)",
         padding: 12,
         cornerRadius: 8,
+        callbacks: {
+          label: function(context) {
+            return `Students Enrolled: ${context.parsed.x}`;
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: {
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+        ticks: {
+          padding: 10,
+        },
+      },
+      y: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          padding: 10,
+        },
       },
     },
   };
 
   // Stat card component
-  const StatCard = ({ title, value, icon, color, gradient, trend, trendValue }) => (
-    <Card className="border-0 shadow-sm h-100" style={{
-      background: gradient || `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
-      transition: "all 0.3s ease",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "translateY(-5px)";
-      e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "translateY(0)";
-      e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
-    }}>
-      <Card.Body className="p-4">
-        <div className="d-flex justify-content-between align-items-start mb-3">
-          <div className="flex-grow-1">
-            <h6 className="mb-2 text-uppercase" style={{ fontSize: "0.75rem", fontWeight: "600", color: "#ffffff", opacity: 0.9 }}>
-              {title}
-            </h6>
-            <h2 className="mb-0 fw-bold" style={{ fontSize: "2rem", color: "#ffffff" }}>
-              {value || 0}
-            </h2>
-            {trend && (
-              <small className="d-flex align-items-center mt-2" style={{ color: "#ffffff", opacity: 0.9 }}>
-                <Icon name={trend === "up" ? "arrow-up" : "arrow-down"} className="me-1" />
-                {trendValue}
-              </small>
-            )}
+  const StatCard = ({ title, value, icon, color, gradient, trend, trendValue, link }) => {
+    const cardContent = (
+      <Card className="border-0 shadow-sm h-100" style={{
+        background: gradient || `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+        transition: "all 0.3s ease",
+        cursor: link ? "pointer" : "default",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-5px)";
+        e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
+      }}>
+        <Card.Body className="p-4">
+          <div className="d-flex justify-content-between align-items-start mb-3">
+            <div className="flex-grow-1">
+              <h6 className="mb-2 text-uppercase" style={{ fontSize: "0.75rem", fontWeight: "600", color: "#ffffff", opacity: 0.9 }}>
+                {title}
+              </h6>
+              <h2 className="mb-0 fw-bold" style={{ fontSize: "2rem", color: "#ffffff" }}>
+                {value || 0}
+              </h2>
+              {trend && (
+                <small className="d-flex align-items-center mt-2" style={{ color: "#ffffff", opacity: 0.9 }}>
+                  <Icon name={trend === "up" ? "arrow-up" : "arrow-down"} className="me-1" />
+                  {trendValue}
+                </small>
+              )}
+            </div>
+            <div
+              className="rounded-circle d-flex align-items-center justify-content-center"
+              style={{
+                width: "60px",
+                height: "60px",
+                backgroundColor: "rgba(255, 255, 255, 0.2)",
+                color: "#ffffff",
+              }}
+            >
+              <Icon name={icon} style={{ fontSize: "1.5rem" }} />
+            </div>
           </div>
-          <div
-            className="rounded-circle d-flex align-items-center justify-content-center"
-            style={{
-              width: "60px",
-              height: "60px",
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              color: "#ffffff",
-            }}
-          >
-            <Icon name={icon} style={{ fontSize: "1.5rem" }} />
-          </div>
-        </div>
-      </Card.Body>
-    </Card>
-  );
+        </Card.Body>
+      </Card>
+    );
+
+    return link ? (
+      <Link to={link} style={{ textDecoration: "none" }}>
+        {cardContent}
+      </Link>
+    ) : cardContent;
+  };
 
   return (
     <Layout title="Dashboard" content="container">
@@ -346,6 +437,7 @@ function Dashboard() {
               icon="users"
               color="#4F46E5"
               gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              link="/Students/manage"
             />
           </Col>
           <Col lg="3" sm="6">
@@ -355,6 +447,7 @@ function Dashboard() {
               icon="book"
               color="#10B981"
               gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)"
+              link="/Courses/list-course"
             />
           </Col>
           <Col lg="3" sm="6">
@@ -364,6 +457,7 @@ function Dashboard() {
               icon="code"
               color="#EC4899"
               gradient="linear-gradient(135deg, #ec4899 0%, #be185d 100%)"
+              link="/CodingChallenges/list-challenge"
             />
           </Col>
           <Col lg="3" sm="6">
@@ -373,6 +467,7 @@ function Dashboard() {
               icon="award"
               color="#F59E0B"
               gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+              link="/Certificates/list-certificate"
             />
           </Col>
         </Row>
@@ -381,63 +476,79 @@ function Dashboard() {
       {/* Secondary Stats */}
       <Block>
         <Row className="g-gs">
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
-                  <Icon name="building" />
-                </div>
-                <h5 className="mb-0 fw-bold">{summary?.total_universities || 0}</h5>
-                <small className="text-muted">Universities</small>
-              </Card.Body>
-            </Card>
+          <Col lg="3" sm="4" xs="6">
+            <Link to="/University/list-University" style={{ textDecoration: "none" }}>
+              <Card className="text-center border-0 shadow-sm h-100" style={{ cursor: "pointer", transition: "all 0.3s ease" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
+                }}>
+                <Card.Body className="p-3">
+                  <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
+                    <Icon name="building" />
+                  </div>
+                  <h5 className="mb-0 fw-bold">{summary?.total_universities || 0}</h5>
+                  <small className="text-muted">Universities</small>
+                </Card.Body>
+              </Card>
+            </Link>
           </Col>
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
-                  <Icon name="briefcase" />
-                </div>
-                <h5 className="mb-0 fw-bold">{summary?.total_organizations || 0}</h5>
-                <small className="text-muted">Organizations</small>
-              </Card.Body>
-            </Card>
+          <Col lg="3" sm="4" xs="6">
+            <Link to="/Organizations/list-organization" style={{ textDecoration: "none" }}>
+              <Card className="text-center border-0 shadow-sm h-100" style={{ cursor: "pointer", transition: "all 0.3s ease" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
+                }}>
+                <Card.Body className="p-3">
+                  <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
+                    <Icon name="briefcase" />
+                  </div>
+                  <h5 className="mb-0 fw-bold">{summary?.total_organizations || 0}</h5>
+                  <small className="text-muted">Organizations</small>
+                </Card.Body>
+              </Card>
+            </Link>
           </Col>
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
-                  <Icon name="home-alt" />
-                </div>
-                <h5 className="mb-0 fw-bold">{summary?.total_colleges || 0}</h5>
-                <small className="text-muted">Colleges</small>
-              </Card.Body>
-            </Card>
+          <Col lg="3" sm="4" xs="6">
+            <Link to="/Colleges/list-college" style={{ textDecoration: "none" }}>
+              <Card className="text-center border-0 shadow-sm h-100" style={{ cursor: "pointer", transition: "all 0.3s ease" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
+                }}>
+                <Card.Body className="p-3">
+                  <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
+                    <Icon name="home-alt" />
+                  </div>
+                  <h5 className="mb-0 fw-bold">{summary?.total_colleges || 0}</h5>
+                  <small className="text-muted">Colleges</small>
+                </Card.Body>
+              </Card>
+            </Link>
           </Col>
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
-                  <Icon name="user-check" />
-                </div>
-                <h5 className="mb-0 fw-bold">{summary?.total_enrolled_students || 0}</h5>
-                <small className="text-muted">Enrolled</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
-                  <Icon name="activity" />
-                </div>
-                <h5 className="mb-0 fw-bold">{summary?.active_users_7_days || 0}</h5>
-                <small className="text-muted">Active (7d)</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col lg="2" sm="4" xs="6">
-            <Card className="text-center border-0 shadow-sm h-100">
+          <Col lg="3" sm="4" xs="6">
+            <Card className="text-center border-0 shadow-sm h-100" style={{ transition: "all 0.3s ease" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-5px)";
+                e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
+              }}>
               <Card.Body className="p-3">
                 <div className="mb-2" style={{ fontSize: "1.5rem", color: "#6B7280" }}>
                   <Icon name="check-circle" />
@@ -472,18 +583,47 @@ function Dashboard() {
           <Col lg="4">
             <Card className="border-0 shadow-sm">
               <Card.Header className="bg-white border-bottom py-3">
-                <Card.Title tag="h5" className="mb-0 fw-bold">Top Courses</Card.Title>
+                <div className="d-flex justify-content-between align-items-center">
+                  <Card.Title tag="h5" className="mb-0 fw-bold">Top Courses</Card.Title>
+                  <Badge bg="info" className="px-3 py-2">By Enrollments</Badge>
+                </div>
               </Card.Header>
               <Card.Body className="p-4">
                 <div style={{ height: "350px" }}>
-                  <Doughnut data={topCoursesData} options={doughnutOptions} />
+                  <Bar data={topCoursesData} options={topCoursesChartOptions} />
                 </div>
                 {summary?.top_courses_list?.length > 0 && (
-                  <div className="mt-3">
+                  <div className="mt-4">
+                    <h6 className="mb-3 text-muted text-uppercase" style={{ fontSize: "0.75rem", fontWeight: "600" }}>
+                      Enrollment Details
+                    </h6>
                     {summary.top_courses_list.slice(0, 5).map((course, idx) => (
-                      <div key={idx} className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                        <span className="text-truncate me-2" style={{ maxWidth: "60%" }}>{course.title}</span>
-                        <Badge bg="light" text="dark">{course.enrollments}</Badge>
+                      <div key={idx} className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div className="d-flex align-items-center flex-grow-1">
+                          <div
+                            className="rounded me-3"
+                            style={{
+                              width: "4px",
+                              height: "30px",
+                              backgroundColor: [
+                                "rgba(79, 70, 229, 1)",
+                                "rgba(236, 72, 153, 1)",
+                                "rgba(251, 191, 36, 1)",
+                                "rgba(16, 185, 129, 1)",
+                                "rgba(59, 130, 246, 1)",
+                              ][idx]
+                            }}
+                          />
+                          <span className="text-truncate" style={{ maxWidth: "150px" }} title={course.title}>
+                            {course.title}
+                          </span>
+                        </div>
+                        <div className="text-end">
+                          <Badge bg="primary" className="px-3 py-2">
+                            <Icon name="users" className="me-1" style={{ fontSize: "0.85rem" }} />
+                            {course.enrollments} Students
+                          </Badge>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -537,13 +677,40 @@ function Dashboard() {
           <Col lg="6">
             <Card className="border-0 shadow-sm">
               <Card.Header className="bg-white border-bottom py-3">
-                <div className="d-flex justify-content-between align-items-center">
+                <div className="d-flex justify-content-between align-items-center mb-3">
                   <Card.Title tag="h5" className="mb-0 fw-bold">
                     <Icon name="trophy" className="me-2 text-warning" />
                     Top Coding Students
                   </Card.Title>
                   <Badge bg="warning" className="px-3 py-2">Leaderboard</Badge>
                 </div>
+                <Row>
+                  <Col md="6">
+                    <Form.Group>
+                      <Form.Select
+                        value={selectedCollege}
+                        onChange={(e) => setSelectedCollege(e.target.value)}
+                        size="sm"
+                        disabled={isFiltering}
+                      >
+                        <option value="">All Colleges</option>
+                        {Array.isArray(colleges) && colleges.map((college) => (
+                          <option key={college.id} value={college.id}>
+                            {college.name}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  {isFiltering && (
+                    <Col md="6" className="d-flex align-items-center">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span className="visually-hidden">Filtering...</span>
+                      </div>
+                      <small className="text-muted">Filtering...</small>
+                    </Col>
+                  )}
+                </Row>
               </Card.Header>
               <Card.Body className="p-0">
                 <div className="table-responsive">
@@ -623,13 +790,40 @@ function Dashboard() {
           <Col lg="6">
             <Card className="border-0 shadow-sm">
               <Card.Header className="bg-white border-bottom py-3">
-                <div className="d-flex justify-content-between align-items-center">
+                <div className="d-flex justify-content-between align-items-center mb-3">
                   <Card.Title tag="h5" className="mb-0 fw-bold">
                     <Icon name="award" className="me-2 text-success" />
                     Top Certification Achievers
                   </Card.Title>
                   <Badge bg="success" className="px-3 py-2">Certified</Badge>
                 </div>
+                <Row>
+                  <Col md="6">
+                    <Form.Group>
+                      <Form.Select
+                        value={selectedCollege}
+                        onChange={(e) => setSelectedCollege(e.target.value)}
+                        size="sm"
+                        disabled={isFiltering}
+                      >
+                        <option value="">All Colleges</option>
+                        {Array.isArray(colleges) && colleges.map((college) => (
+                          <option key={college.id} value={college.id}>
+                            {college.name}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  {isFiltering && (
+                    <Col md="6" className="d-flex align-items-center">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span className="visually-hidden">Filtering...</span>
+                      </div>
+                      <small className="text-muted">Filtering...</small>
+                    </Col>
+                  )}
+                </Row>
               </Card.Header>
               <Card.Body className="p-0">
                 <div className="table-responsive">
@@ -720,7 +914,7 @@ function Dashboard() {
               </Card.Header>
               <Card.Body className="p-4">
                 <Row className="g-4">
-                  <Col md="3">
+                  <Col md="4">
                     <div className="text-center p-4 border rounded-3 h-100" style={{ background: "linear-gradient(135deg, #667eea15 0%, #764ba215 100%)" }}>
                       <div className="mb-3" style={{ fontSize: "2rem", color: "#667eea" }}>
                         <Icon name="check-circle" />
@@ -739,24 +933,7 @@ function Dashboard() {
                       />
                     </div>
                   </Col>
-                  <Col md="3">
-                    <div className="text-center p-4 border rounded-3 h-100" style={{ background: "linear-gradient(135deg, #10b98115 0%, #05966915 100%)" }}>
-                      <div className="mb-3" style={{ fontSize: "2rem", color: "#10b981" }}>
-                        <Icon name="users" />
-                      </div>
-                      <h6 className="text-muted text-uppercase mb-2" style={{ fontSize: "0.75rem", fontWeight: "600" }}>
-                        Active Users (7 days)
-                      </h6>
-                      <h2 className="mb-0 fw-bold" style={{ color: "#10b981" }}>
-                        {summary?.active_users_7_days || 0}
-                      </h2>
-                      <div className="mt-3 text-muted small">
-                        <Icon name="trending-up" className="me-1" />
-                        Last week activity
-                      </div>
-                    </div>
-                  </Col>
-                  <Col md="3">
+                  <Col md="4">
                     <div className="text-center p-4 border rounded-3 h-100" style={{ background: "linear-gradient(135deg, #ec489915 0%, #be185d15 100%)" }}>
                       <div className="mb-3" style={{ fontSize: "2rem", color: "#ec4899" }}>
                         <Icon name="book-open" />
@@ -773,7 +950,7 @@ function Dashboard() {
                       </div>
                     </div>
                   </Col>
-                  <Col md="3">
+                  <Col md="4">
                     <div className="text-center p-4 border rounded-3 h-100" style={{ background: "linear-gradient(135deg, #f59e0b15 0%, #d9770615 100%)" }}>
                       <div className="mb-3" style={{ fontSize: "2rem", color: "#f59e0b" }}>
                         <Icon name="file-text" />

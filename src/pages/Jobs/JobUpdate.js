@@ -43,7 +43,7 @@ function JobUpdate() {
     const fetchData = async () => {
       try {
         // Fetch job details
-        const jobResponse = await axios.get(`${API_BASE_URL}/api/jobs/${slug}/`, {
+        const jobResponse = await axios.get(`${API_BASE_URL}/api/company/jobs/${slug}/`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         const job = jobResponse.data;
@@ -76,7 +76,7 @@ function JobUpdate() {
         });
 
         // Fetch companies
-        const companiesResponse = await axios.get(`${API_BASE_URL}/api/companies/`, {
+        const companiesResponse = await axios.get(`${API_BASE_URL}/api/company/companies/`, {
           headers: { Authorization: `Bearer ${authToken}` },
           params: { page_size: 1000 },
         });
@@ -116,7 +116,7 @@ function JobUpdate() {
       if (!data.application_url) data.application_url = null;
       if (!data.contact_email) data.contact_email = null;
 
-      await axios.patch(`${API_BASE_URL}/api/jobs/${slug}/`, data, {
+      await axios.patch(`${API_BASE_URL}/api/company/jobs/${slug}/`, data, {
         headers: {
           Authorization: `Bearer ${authToken}`,
           'Content-Type': 'application/json',
