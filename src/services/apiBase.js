@@ -4,10 +4,12 @@ import axios from 'axios';
  * API Base Configuration
  * Change the base URL here to update it across the entire application
  */
-
-export const API_BASE_URL = 'http://krishik-abiuasd.in:8000';
-// 
-// export const API_BASE_URL = 'http://localhost:8000';
+// local testing
+// export const API_BASE_URL = 'http://krishik-abiuasd.in:8000'; 
+//
+// interserver testing
+// export const API_BASE_URL = 'https://krishik-abiuasd.in';  
+export const API_BASE_URL = 'http://localhost:8000';
 
 // export const API_BASE_URL = 'http://16.171.21.66';
 
@@ -31,7 +33,7 @@ apiBase.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and CORS fixes
 apiBase.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -43,6 +45,15 @@ apiBase.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Helper function to normalize URLs for CORS compatibility
+ * Converts HTTP to HTTPS to ensure consistent protocol
+ */
+export const normalizeUrl = (url) => {
+  if (!url) return url;
+  return url.replace(/^http:/, 'https:');
+};
 
 // ========== Authentication APIs ==========
 

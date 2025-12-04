@@ -1,0 +1,270 @@
+/* Enhanced Text Editor Styles */
+
+.enhanced-text-editor {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  overflow: hidden;
+  background: white;
+}
+
+/* Toolbar Styling */
+.editor-toolbar {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+/* Color Picker Wrapper */
+.color-picker-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.text-color-btn {
+  position: relative;
+  min-width: 40px;
+}
+
+.text-color-btn .color-indicator {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  border: 1px solid #999;
+}
+
+/* Color Palette */
+.color-palette {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+}
+
+.color-option {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+  border-color: #333;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Highlight Color Picker */
+.highlight-picker-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.highlight-btn {
+  position: relative;
+  min-width: 40px;
+}
+
+.highlight-btn .highlight-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #999;
+}
+
+/* Highlight Palette */
+.highlight-palette {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+}
+
+.highlight-option {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #999;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.highlight-option:hover {
+  transform: scale(1.1);
+  border-color: #333;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Font Size Select */
+.font-size-select {
+  max-width: 120px;
+}
+
+/* Editor Content Area */
+.editor-content {
+  min-height: 250px;
+  padding: 15px;
+  overflow-y: auto;
+  max-height: 500px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  word-wrap: break-word;
+  outline: none;
+}
+
+.editor-content:empty:before {
+  content: attr(data-placeholder);
+  color: #999;
+  pointer-events: none;
+}
+
+.editor-content:focus {
+  background: #ffffff;
+}
+
+/* Text formatting results */
+.editor-content strong {
+  font-weight: 700;
+}
+
+.editor-content em {
+  font-style: italic;
+}
+
+.editor-content u {
+  text-decoration: underline;
+}
+
+.editor-content s {
+  text-decoration: line-through;
+}
+
+.editor-content ul {
+  margin-left: 20px;
+  margin-bottom: 10px;
+}
+
+.editor-content ol {
+  margin-left: 20px;
+  margin-bottom: 10px;
+}
+
+.editor-content li {
+  margin-bottom: 5px;
+}
+
+.editor-content p {
+  margin-bottom: 10px;
+}
+
+.editor-content h1,
+.editor-content h2,
+.editor-content h3,
+.editor-content h4,
+.editor-content h5,
+.editor-content h6 {
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+/* Editor Footer */
+.editor-footer {
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .toolbar-row {
+    gap: 4px;
+  }
+
+  .color-palette,
+  .highlight-palette {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .editor-content {
+    min-height: 200px;
+    max-height: 400px;
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .font-size-select {
+    max-width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .editor-toolbar {
+    padding: 8px;
+  }
+
+  .toolbar-row {
+    gap: 2px;
+  }
+
+  .color-palette,
+  .highlight-palette {
+    grid-template-columns: repeat(3, 1fr);
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .color-option,
+  .highlight-option {
+    width: 26px;
+    height: 26px;
+  }
+
+  .editor-content {
+    min-height: 150px;
+    max-height: 300px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .font-size-select {
+    max-width: 90px;
+    font-size: 12px;
+  }
+}

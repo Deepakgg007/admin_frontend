@@ -27,6 +27,8 @@ function CollegeUpdate() {
     description: "",
     logo: null,
     oldLogoUrl: "",
+    signature: null,
+    oldSignatureUrl: "",
   });
 
   const [organizations, setOrganizations] = useState([]);
@@ -80,7 +82,9 @@ function CollegeUpdate() {
           is_active: data.is_active ?? true,
           description: data.description || "",
           logo: null,
-          oldLogoUrl: data.logo || "",
+          oldLogoUrl: data.logo_display || data.logo || "",
+          signature: null,
+          oldSignatureUrl: data.signature_display || data.signature || "",
         });
       } catch (err) {
         console.error("Error fetching college:", err);
@@ -105,6 +109,12 @@ function CollegeUpdate() {
     if (file) setForm((prev) => ({ ...prev, logo: file }));
   };
 
+  // Handle signature change
+  const handleSignatureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) setForm((prev) => ({ ...prev, signature: file }));
+  };
+
   // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,6 +133,7 @@ function CollegeUpdate() {
       formData.append("is_active", form.is_active);
       formData.append("description", form.description);
       if (form.logo) formData.append("logo", form.logo);
+      if (form.signature) formData.append("signature", form.signature);
 
       await axios.patch(`${API_BASE_URL}/api/colleges/${id}/`, formData, {
         headers: {
@@ -312,6 +323,38 @@ function CollegeUpdate() {
                       {form.logo && (
                         <div className="mt-2">
                           Selected file: <strong>{form.logo.name}</strong>
+                        </div>
+                      )}
+                    </Col>
+
+                    <Col md={12}>
+                      <Form.Group>
+                        <Form.Label>College Signature</Form.Label>
+                        <Form.Control type="file" accept="image/*" onChange={handleSignatureChange} />
+                        <Form.Text className="text-muted">Upload college signature image (used for official documents)</Form.Text>
+                      </Form.Group>
+
+                      {/* Show current signature if exists */}
+                      {form.oldSignatureUrl && !form.signature && (
+                        <div className="mt-2">
+                          <p>Current Signature:</p>
+                          <img
+                            src={form.oldSignatureUrl}
+                            alt="College Signature"
+                            style={{
+                              width: "120px",
+                              height: "60px",
+                              borderRadius: "8px",
+                              objectFit: "contain",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Show new signature name if selected */}
+                      {form.signature && (
+                        <div className="mt-2">
+                          Selected file: <strong>{form.signature.name}</strong>
                         </div>
                       )}
                     </Col>

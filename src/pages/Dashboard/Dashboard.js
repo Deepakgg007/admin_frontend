@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Row, Col, Badge, Table, ProgressBar, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Bar, Line, Pie } from "react-chartjs-2";
+import { Bar, Line, Pie, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -237,33 +237,24 @@ function Dashboard() {
     ],
   };
 
-  // Top courses bar chart
-  const topCoursesData = {
-    labels: summary?.top_courses_list?.slice(0, 5).map((course) => course.title) || [],
-    datasets: [
-      {
-        label: "Students Enrolled",
-        data: summary?.top_courses_list?.slice(0, 5).map((course) => course.enrollments) || [],
-        backgroundColor: [
-          "rgba(79, 70, 229, 0.8)",
-          "rgba(236, 72, 153, 0.8)",
-          "rgba(251, 191, 36, 0.8)",
-          "rgba(16, 185, 129, 0.8)",
-          "rgba(59, 130, 246, 0.8)",
-        ],
-        borderColor: [
-          "rgba(79, 70, 229, 1)",
-          "rgba(236, 72, 153, 1)",
-          "rgba(251, 191, 36, 1)",
-          "rgba(16, 185, 129, 1)",
-          "rgba(59, 130, 246, 1)",
-        ],
-        borderWidth: 2,
-        borderRadius: 8,
-        borderSkipped: false,
-      },
-    ],
-  };
+ // Top Course Doughnut chart data
+const topCourses = summary?.top_courses_list?.slice(0, 5) || [];
+
+const doughnutData = {
+  datasets: [
+    {
+      data: topCourses.map((c) => c.enrollments),
+      backgroundColor: [
+        "rgba(79, 70, 229, 0.8)",
+        "rgba(236, 72, 153, 0.8)",
+        "rgba(251, 191, 36, 0.8)",
+        "rgba(16, 185, 129, 0.8)",
+        "rgba(59, 130, 246, 0.8)",
+      ],
+      borderWidth: 2,
+    },
+  ],
+};
 
   const chartOptions = {
     responsive: true,
@@ -581,56 +572,52 @@ function Dashboard() {
           </Col>
 
           <Col lg="4">
-            <Card className="border-0 shadow-sm">
-              <Card.Header className="bg-white border-bottom py-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <Card.Title tag="h5" className="mb-0 fw-bold">Top Courses</Card.Title>
-                  <Badge bg="info" className="px-3 py-2">By Enrollments</Badge>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-4">
-                <div style={{ height: "350px" }}>
-                  <Bar data={topCoursesData} options={topCoursesChartOptions} />
-                </div>
-                {summary?.top_courses_list?.length > 0 && (
-                  <div className="mt-4">
-                    <h6 className="mb-3 text-muted text-uppercase" style={{ fontSize: "0.75rem", fontWeight: "600" }}>
-                      Enrollment Details
-                    </h6>
-                    {summary.top_courses_list.slice(0, 5).map((course, idx) => (
-                      <div key={idx} className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                        <div className="d-flex align-items-center flex-grow-1">
-                          <div
-                            className="rounded me-3"
-                            style={{
-                              width: "4px",
-                              height: "30px",
-                              backgroundColor: [
-                                "rgba(79, 70, 229, 1)",
-                                "rgba(236, 72, 153, 1)",
-                                "rgba(251, 191, 36, 1)",
-                                "rgba(16, 185, 129, 1)",
-                                "rgba(59, 130, 246, 1)",
-                              ][idx]
-                            }}
-                          />
-                          <span className="text-truncate" style={{ maxWidth: "150px" }} title={course.title}>
-                            {course.title}
-                          </span>
-                        </div>
-                        <div className="text-end">
-                          <Badge bg="primary" className="px-3 py-2">
-                            <Icon name="users" className="me-1" style={{ fontSize: "0.85rem" }} />
-                            {course.enrollments} Students
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          </Col>
+    <Card className="border-0 shadow-sm">
+      <Card.Header className="bg-white border-bottom py-3">
+        <div className="d-flex justify-content-between align-items-center">
+          <Card.Title tag="h5" className="mb-0 fw-bold">
+            Top Courses
+          </Card.Title>
+          <Badge bg="info" className="px-3 py-2">
+            Enrollments
+          </Badge>
+        </div>
+      </Card.Header>
+
+      <Card.Body className="p-4">
+        <div className="d-flex flex-column align-items-center">
+          {/* Doughnut Chart */}
+          <div style={{ width: "220px", height: "220px" }}>
+            <Doughnut data={doughnutData} />
+          </div>
+
+          {/* List (Styled like the image reference) */}
+          {/* Horizontal list like reference */}
+<div className="mt-4 w-100 d-flex flex-wrap align-items-center" style={{ gap: "18px" }}>
+  {topCourses.map((course, idx) => (
+    <div
+      key={idx}
+      className="d-flex align-items-center"
+      style={{ fontSize: "14px", whiteSpace: "nowrap" }}
+    >
+      <span
+        style={{
+          width: "10px",
+          height: "10px",
+          backgroundColor: doughnutData.datasets[0].backgroundColor[idx],
+          display: "inline-block",
+          borderRadius: "2px",
+          marginRight: "6px",
+        }}
+      ></span>
+      <span className="fw-semibold">{course.title}</span>
+    </div>
+  ))}
+</div>
+        </div>
+      </Card.Body>
+    </Card>
+  </Col>
         </Row>
       </Block>
 
@@ -902,7 +889,7 @@ function Dashboard() {
       </Block>
 
       {/* Performance Metrics */}
-      <Block>
+      {/* <Block>
         <Row className="g-gs">
           <Col lg="12">
             <Card className="border-0 shadow-sm">
@@ -972,7 +959,7 @@ function Dashboard() {
             </Card>
           </Col>
         </Row>
-      </Block>
+      </Block> */}
     </Layout>
   );
 }

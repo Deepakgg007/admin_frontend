@@ -80,46 +80,192 @@ function CollegeView() {
           </div>
         ) : college ? (
           <Row>
-            <Col xxl="12">
-              <Card className="card-gutter-md p-3">
-                <div><strong>Name:</strong> {college.name || "—"}</div>
-                <div className="mt-2"><strong>Email:</strong> {college.email || "—"}</div>
-                <div className="mt-2"><strong>Phone:</strong> {college.phone_number || "—"}</div>
-                <div className="mt-2"><strong>Address:</strong> {college.address || "—"}</div>
-                <div className="mt-2"><strong>Max Students:</strong> {college.max_students ?? "—"}</div>
-                <div className="mt-2"><strong>Current Students:</strong> {college.current_students ?? "—"}</div>
-                <div className="mt-2"><strong>Organization:</strong> {college.organization_name || "—"}</div>
-                <div className="mt-2"><strong>University:</strong> {college.university_name || "—"}</div>
-                <div className="mt-2"><strong>Registration Open:</strong> {college.is_registration_open ? "Yes" : "No"}</div>
-                <div className="mt-2"><strong>Status:</strong> {college.is_active ? "Active" : "Inactive"}</div>
-                <div className="mt-2"><strong>Logo:</strong>{" "}
-                  {college.logo ? (
+            {/* Header Section */}
+            <Col xxl="12" className="mb-4">
+              <Card className="border-0 shadow-sm" style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white" }}>
+                <Card.Body className="p-4">
+                  <Row className="align-items-center">
+                    <Col md={8}>
+                      <h2 className="mb-2 fw-bold">{college.name}</h2>
+                      <p className="mb-1 text-white-50">{college.organization_name} • {college.university_name}</p>
+                      <div className="mt-3">
+                        <Badge bg={college.is_active ? "success" : "danger"} className="me-2">
+                          {college.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Badge bg={college.is_registration_open ? "info" : "secondary"}>
+                          {college.is_registration_open ? "Registration Open" : "Registration Closed"}
+                        </Badge>
+                      </div>
+                    </Col>
+                    <Col md={4} className="text-center">
+                      {college.logo_display || college.logo ? (
+                        <img
+                          src={college.logo_display || college.logo}
+                          alt={college.name}
+                          style={{
+                            maxWidth: "100%",
+                            maxHeight: 130,
+                            objectFit: "contain",
+                            borderRadius: 10,
+                            border: "4px solid white",
+                            padding: "5px",
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: "100%",
+                          minHeight: 130,
+                          borderRadius: 10,
+                          background: "rgba(255,255,255,0.2)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white",
+                          border: "4px solid white",
+                        }}>
+                          No Logo
+                        </div>
+                      )}
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Main Information */}
+            <Col lg={8} className="mb-4">
+              <Card className="shadow-sm border-0 mb-4">
+                <Card.Header className="bg-white border-bottom py-3">
+                  <Card.Title className="mb-0 fw-bold">Contact Information</Card.Title>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={6}>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Email</small>
+                        <p className="mb-0">{college.email || "—"}</p>
+                      </div>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Phone</small>
+                        <p className="mb-0">{college.phone_number || "—"}</p>
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Address</small>
+                        <p className="mb-0">{college.address || "—"}</p>
+                      </div>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+
+              <Card className="shadow-sm border-0">
+                <Card.Header className="bg-white border-bottom py-3">
+                  <Card.Title className="mb-0 fw-bold">Academic Information</Card.Title>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={6}>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Max Students</small>
+                        <h5 className="mb-0">{college.max_students ?? "—"}</h5>
+                      </div>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Current Students</small>
+                        <h5 className="mb-0">{college.current_students ?? "—"}</h5>
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-1">Available Seats</small>
+                        <h5 className="mb-0" style={{ color: college.available_seats > 0 ? "#28a745" : "#dc3545" }}>
+                          {college.available_seats ?? "—"}
+                        </h5>
+                      </div>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Sidebar */}
+            <Col lg={4} className="mb-4">
+              {/* Signature Card */}
+              <Card className="shadow-sm border-0 mb-4">
+                <Card.Header className="bg-white border-bottom py-3">
+                  <Card.Title className="mb-0 fw-bold">College Signature</Card.Title>
+                </Card.Header>
+                <Card.Body className="text-center p-4">
+                  {college.signature_display ? (
                     <img
-                      src={college.logo}
-                      alt={college.name}
+                      src={college.signature_display}
+                      alt={`${college.name} Signature`}
                       style={{
-                        width: 80,
-                        height: 80,
-                        objectFit: "cover",
-                        borderRadius: 5,
+                        maxWidth: "100%",
+                        height: "auto",
+                        maxHeight: 100,
+                        objectFit: "contain",
                       }}
                     />
-                  ) : "—"}
-                </div>
-                <div className="mt-2"><strong>Description:</strong> {college.description || "—"}</div>
-                <div className="mt-2"><strong>Created By:</strong> {college.created_by?.username || "—"}</div>
-                <div className="mt-2"><strong>Created At:</strong> {college.created_at ? new Date(college.created_at).toLocaleString() : "—"}</div>
-                <div className="mt-2"><strong>Updated At:</strong> {college.updated_at ? new Date(college.updated_at).toLocaleString() : "—"}</div>
-
-                <div className="mt-4 d-flex gap-2">
-                  <Link to="/Colleges/list-college" className="btn btn-primary">
-                    Back
-                  </Link>
-                  <Link to={`/Colleges/add-company/${id}`} className="btn btn-success">
-                    <Icon name="plus" /> Add Company
-                  </Link>
-                </div>
+                  ) : (
+                    <p className="text-muted mb-0">No signature available</p>
+                  )}
+                </Card.Body>
               </Card>
+
+              {/* Description Card */}
+              <Card className="shadow-sm border-0">
+                <Card.Header className="bg-white border-bottom py-3">
+                  <Card.Title className="mb-0 fw-bold">Description</Card.Title>
+                </Card.Header>
+                <Card.Body>
+                  <p className="mb-0 text-muted">{college.description || "No description provided."}</p>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Metadata */}
+            <Col xxl="12" className="mb-4">
+              <Card className="shadow-sm border-0">
+                <Card.Header className="bg-white border-bottom py-3">
+                  <Card.Title className="mb-0 fw-bold">Metadata</Card.Title>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={4}>
+                      <div>
+                        <small className="text-muted d-block mb-1">Created By</small>
+                        <p className="mb-0 fw-semibold">{college.created_by?.username || "—"}</p>
+                      </div>
+                    </Col>
+                    <Col md={4}>
+                      <div>
+                        <small className="text-muted d-block mb-1">Created At</small>
+                        <p className="mb-0 fw-semibold">{college.created_at ? new Date(college.created_at).toLocaleString() : "—"}</p>
+                      </div>
+                    </Col>
+                    <Col md={4}>
+                      <div>
+                        <small className="text-muted d-block mb-1">Updated At</small>
+                        <p className="mb-0 fw-semibold">{college.updated_at ? new Date(college.updated_at).toLocaleString() : "—"}</p>
+                      </div>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Action Buttons */}
+            <Col xxl="12">
+              <div className="d-flex gap-2">
+                <Link to="/Colleges/list-college" className="btn btn-primary">
+                  <Icon name="arrow-left" /> Back to Colleges
+                </Link>
+                <Link to={`/Colleges/add-company/${id}`} className="btn btn-success">
+                  <Icon name="plus" /> Add Company
+                </Link>
+              </div>
             </Col>
 
             {/* Companies Section */}

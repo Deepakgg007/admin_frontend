@@ -89,31 +89,37 @@ const TaskForm = () => {
         return;
       }
 
-      // Fetch all topics and filter by course
-      const response = await axios.get(`${API_BASE_URL}/api/topics/`, {
-        params: {
-          per_page: 10000
-        },
-        headers: getAuthHeaders()
-      });
+      // Fetch topics for the selected course only (more efficient)
+      let allTopics = [];
+      let nextUrl = `${API_BASE_URL}/api/topics/?course=${id}`;
 
-      // Handle different response structures
-      let allTopics = response.data.results || response.data.data || response.data;
+      // Handle pagination - fetch all pages for this course
+      while (nextUrl) {
+        // Normalize the next URL to ensure it uses HTTPS (fixes CORS issues)
+        const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
 
-      // Ensure it's an array
-      if (!Array.isArray(allTopics)) {
-        allTopics = [];
+        const response = await axios.get(normalizedUrl, {
+          headers: getAuthHeaders()
+        });
+
+        const pageResults = response.data.results || response.data.data || response.data;
+
+        if (Array.isArray(pageResults)) {
+          allTopics = [...allTopics, ...pageResults];
+        }
+
+        // Check if there's a next page
+        let nextUrlFromResponse = response.data.next || null;
+
+        // Normalize next URL to HTTPS if it exists
+        if (nextUrlFromResponse) {
+          nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
+        } else {
+          nextUrl = null;
+        }
       }
 
-      // Filter by course
-      const filteredTopics = allTopics.filter(topic => {
-        const topicCourseId = topic.course;
-        const selectedId = parseInt(id);
-        return topicCourseId == selectedId;
-      });
-
-      setTopics(filteredTopics);
-      console.log(`Fetched ${filteredTopics.length} topics for course ${id}:`, filteredTopics);
+      setTopics(allTopics);
     } catch (error) {
       console.error('Error fetching topics:', error);
       setTopics([]);
@@ -229,7 +235,7 @@ const TaskForm = () => {
                       disabled={!formData.course}
                     >
                       <option value="">
-                        {formData.course ? 'Select Topic (Optional)' : 'Select course first'}
+                        {formData.course ? 'Select Topic' : 'Select course first'}
                       </option>
                       {topics.map((topic) => (
                         <option key={topic.id} value={topic.id}>

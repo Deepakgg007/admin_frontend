@@ -3,7 +3,7 @@ import { Card, Button, Badge, Modal, Form, Alert, Spinner, Accordion } from 'rea
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { API_BASE_URL } from '../../services/apiBase';
-import { Icon } from '../../components';
+import { Icon, EnhancedTextEditor } from '../../components';
 
 const TaskRichTextPageList = ({ taskId, refreshKey, onRefresh }) => {
   const [pages, setPages] = useState([]);
@@ -352,15 +352,13 @@ const TaskRichTextPageList = ({ taskId, refreshKey, onRefresh }) => {
 
           {blockType === 'text' && (
             <Form.Group className="mb-3">
-              <Form.Label>Text Content (HTML)</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={6}
-                placeholder="<p>Your HTML content here...</p>"
+              <Form.Label>Text Content with Formatting</Form.Label>
+              <EnhancedTextEditor
                 value={textBlockForm.content}
-                onChange={(e) => setTextBlockForm({ ...textBlockForm, content: e.target.value })}
+                onChange={(content) => setTextBlockForm({ ...textBlockForm, content })}
+                placeholder="Start typing or use the formatting toolbar to style your text..."
               />
-              <Form.Text>You can use HTML tags for formatting</Form.Text>
+              <Form.Text>Use the toolbar to format text with colors, highlighting, bold, italic, lists, and more. The HTML is automatically saved.</Form.Text>
             </Form.Group>
           )}
 

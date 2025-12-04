@@ -21,6 +21,7 @@ function CollegeCreate() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [maxStudents, setMaxStudents] = useState('');
   const [logo, setLogo] = useState(null);
+  const [signature, setSignature] = useState(null);
   const [description, setDescription] = useState('');
   const [organization, setOrganization] = useState('');
   const [isActive, setIsActive] = useState(true);
@@ -73,6 +74,13 @@ function CollegeCreate() {
     setLogo(file);
   };
 
+  // Handle signature file change
+  const handleSignatureChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSignature(file);
+  };
+
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,6 +110,7 @@ function CollegeCreate() {
       formDataObj.append('organization', organization);
       formDataObj.append('is_active', isActive);
       if (logo) formDataObj.append('logo', logo);
+      if (signature) formDataObj.append('signature', signature);
       formDataObj.append('description', description);
 
       const response = await axios.post(
@@ -284,6 +293,19 @@ function CollegeCreate() {
                       isInvalid={!!errors.logo}
                     />
                     <Form.Control.Feedback type="invalid">{errors.logo && errors.logo[0]}</Form.Control.Feedback>
+                  </Form.Group>
+
+                  {/* Signature Upload */}
+                  <Form.Group className="form-group mt-3">
+                    <Form.Label>College Signature</Form.Label>
+                    <Form.Control
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSignatureChange}
+                      isInvalid={!!errors.signature}
+                    />
+                    <Form.Control.Feedback type="invalid">{errors.signature && errors.signature[0]}</Form.Control.Feedback>
+                    <Form.Text className="text-muted">Upload college signature image (used for official documents)</Form.Text>
                   </Form.Group>
 
                   {/* Description */}

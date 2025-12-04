@@ -3,14 +3,13 @@ import { useParams, Link } from "react-router-dom";
 import { Card, Row, Col, Spinner, Badge, Table, Button } from "react-bootstrap";
 import Swal from "sweetalert2";
 import axios from "axios";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 import Layout from "../../layout/default";
 import Block from "../../components/Block/Block";
 import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
 import CertificateTemplate from "./CertificateTemplate";
+import { downloadCertificateAsPDF, printCertificate } from "./CertificateDownloadHelper";
 
 function CertificateView() {
   const { id } = useParams();
@@ -42,83 +41,47 @@ function CertificateView() {
   }, [id, authToken]);
 
   /**
-   * Download certificate as PDF from backend
-   * Uses the backend PDF generation with logos
+   * Download certificate as PDF using frontend generation
+   * Generates certificate directly from React component with Z1 logo, college logo, and signatures
    */
-  const downloadCertificateAsPDF = async () => {
+  const handleDownloadCertificate = async () => {
     setDownloading(true);
     try {
-      // Try to fetch from backend PDF generation endpoint
-      const response = await axios.get(
-        `${API_BASE_URL}/api/admin/cert/certifications/${id}/download-pdf/`,
-        {
-          headers: { Authorization: `Bearer ${authToken}` },
-          responseType: "blob",
-        }
+      await downloadCertificateAsPDF(
+        certificateRef,
+        `${certificate.title || 'Certificate'}`
       );
-
-      // Create blob URL and download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${certificate.title}-Certificate.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      Swal.fire("Success", "Certificate downloaded successfully.", "success");
+      Swal.fire(
+        "Success",
+        "Certificate downloaded successfully.",
+        "success"
+      );
     } catch (error) {
       console.error("Error downloading certificate:", error);
-
-      // Fallback: Use client-side generation if backend fails
-      try {
-        if (!certificateRef.current) {
-          Swal.fire("Error", "Failed to download certificate.", "error");
-          return;
-        }
-
-        const canvas = await html2canvas(certificateRef.current, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-        });
-
-        const pdf = new jsPDF({
-          orientation: "landscape",
-          unit: "mm",
-          format: "a4",
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${certificate.title}-Certificate.pdf`);
-
-        Swal.fire("Success", "Certificate downloaded successfully (client-side).", "success");
-      } catch (fallbackError) {
-        console.error("Fallback download error:", fallbackError);
-        Swal.fire("Error", "Failed to download certificate.", "error");
-      }
+      Swal.fire(
+        "Error",
+        error.message || "Failed to download certificate.",
+        "error"
+      );
     } finally {
       setDownloading(false);
     }
   };
 
   /**
-   * Print certificate
+   * Print certificate using frontend template
    */
-  const printCertificate = () => {
-    if (!certificateRef.current) return;
-
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(certificateRef.current.outerHTML);
-    printWindow.document.close();
-    printWindow.print();
+  const handlePrintCertificate = async () => {
+    try {
+      await printCertificate(certificateRef);
+    } catch (error) {
+      console.error("Error printing certificate:", error);
+      Swal.fire(
+        "Error",
+        error.message || "Failed to print certificate.",
+        "error"
+      );
+    }
   };
 
   return (
@@ -149,7 +112,7 @@ function CertificateView() {
               </Link>
               <Button
                 variant="success"
-                onClick={downloadCertificateAsPDF}
+                onClick={handleDownloadCertificate}
                 disabled={downloading || !certificate}
               >
                 <Icon name="download me-1" />
@@ -157,7 +120,7 @@ function CertificateView() {
               </Button>
               <Button
                 variant="info"
-                onClick={printCertificate}
+                onClick={handlePrintCertificate}
                 disabled={!certificate}
               >
                 <Icon name="printer me-1" /> Print
@@ -192,8 +155,11 @@ function CertificateView() {
                       day: "numeric",
                     }
                   )}
+                  score={certificate.score || 100}
+                  passingScore={certificate.passing_score || 80}
                   collegeName={certificate.college_name || "Z1 Education"}
                   collegeLogo={certificate.college_logo}
+                  collegeSignature={certificate.college_signature}
                   certificateNumber={certificate.certificate_number || `CERT-${id}`}
                   principalName={certificate.principal_name || "Director"}
                 />

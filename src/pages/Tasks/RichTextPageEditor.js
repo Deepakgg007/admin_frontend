@@ -541,134 +541,73 @@ const RichTextPageEditor = () => {
                                   const data = editor.getData();
                                   updateBlock(block.id, 'content', data);
                                 }}
+                                onReady={(editor) => {
+                                  console.log('CKEditor ready');
+                                }}
+                                onError={(error) => {
+                                  console.error('CKEditor error:', error);
+                                }}
                                 config={{
                                   extraPlugins: [Base64UploadAdapterPlugin],
-                                  toolbar: {
-                                    items: [
-                                      'heading', 'paragraph', '|',
-                                      'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript', '|',
-                                      'fontColor', 'fontBackgroundColor', 'fontFamily', 'fontSize', '|',
-                                      'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-                                      'alignment', '|',
-                                      'link', 'uploadImage', 'blockQuote', 'codeBlock', 'insertTable', 'horizontalLine', '|',
-                                      'removeFormat', '|',
-                                      'undo', 'redo'
-                                    ],
-                                    shouldNotGroupWhenFull: true
-                                  },
-                                  paragraph: {
-                                    modes: [
-                                      {
-                                        title: 'Paragraph',
-                                        model: 'paragraph',
-                                        class: 'ck-heading_paragraph'
-                                      }
-                                    ]
-                                  },
-                                  image: {
-                                    toolbar: [
-                                      'imageStyle:block',
-                                      'imageStyle:side',
-                                      'imageStyle:alignBlockLeft',
-                                      'imageStyle:alignBlockRight',
-                                      'imageStyle:alignInline',
-                                      '|',
-                                      'imageResize',
-                                      '|',
-                                      'imageTextAlternative',
-                                      'imageTitle',
-                                      'imageLinkOpen',
-                                      'imageLinkEdit'
-                                    ],
-                                    styles: {
-                                      options: [
-                                        { name: 'block', title: 'Block image (full width)', isDefault: true },
-                                        { name: 'side', title: 'Side image (wrapped with text)' },
-                                        { name: 'inline', title: 'Inline image' },
-                                        { name: 'alignBlockLeft', title: 'Align left' },
-                                        { name: 'alignBlockRight', title: 'Align right' }
-                                      ]
-                                    },
-                                    resizeOptions: [
-                                      {
-                                        name: 'resizeImage:original',
-                                        label: 'Original size',
-                                        value: null
-                                      },
-                                      {
-                                        name: 'resizeImage:50',
-                                        label: '50%',
-                                        value: '50'
-                                      },
-                                      {
-                                        name: 'resizeImage:75',
-                                        label: '75%',
-                                        value: '75'
-                                      }
-                                    ]
-                                  },
-                                  simpleUpload: {
-                                    uploadUrl: `${API_BASE_URL}/api/upload-image/`
-                                  },
-                                  upload: {
-                                    types: ['jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff']
-                                  },
-                                  table: {
-                                    contentToolbar: [
-                                      'tableColumn',
-                                      'tableRow',
-                                      'mergeTableCells',
-                                      'tableProperties',
-                                      'tableCellProperties',
-                                      'toggleTableCaption'
-                                    ]
-                                  },
-                                  fontSize: {
-                                    options: [
-                                      9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 28, 32, 36
-                                    ]
-                                  },
-                                  fontFamily: {
-                                    options: [
-                                      'default',
-                                      'Arial, sans-serif',
-                                      'Calibri, sans-serif',
-                                      'Courier New, monospace',
-                                      'Georgia, serif',
-                                      'Lucida Sans Unicode, sans-serif',
-                                      'Trebuchet MS, sans-serif',
-                                      'Verdana, sans-serif',
-                                      'Times New Roman, serif'
-                                    ]
-                                  },
+                                  toolbar: [
+                                    'heading', '|',
+                                    'bold', 'italic', 'underline', 'strikethrough', '|',
+                                    'fontColor', 'fontBackgroundColor', 'highlight', '|',
+                                    'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+                                    'link', 'blockQuote', 'insertTable', '|',
+                                    'removeFormat', '|',
+                                    'undo', 'redo'
+                                  ],
                                   fontColor: {
-                                    columns: 5,
+                                    columns: 8,
                                     colors: [
-                                      { color: 'hsl(0, 0%, 0%)', label: 'Black' },
-                                      { color: 'hsl(0, 0%, 30%)', label: 'Dark Grey' },
-                                      { color: 'hsl(0, 0%, 60%)', label: 'Grey' },
-                                      { color: 'hsl(0, 75%, 60%)', label: 'Red' },
-                                      { color: 'hsl(30, 75%, 60%)', label: 'Orange' },
-                                      { color: 'hsl(60, 75%, 60%)', label: 'Yellow' },
-                                      { color: 'hsl(120, 75%, 60%)', label: 'Green' },
-                                      { color: 'hsl(180, 75%, 60%)', label: 'Cyan' },
-                                      { color: 'hsl(240, 75%, 60%)', label: 'Blue' },
-                                      { color: 'hsl(270, 75%, 60%)', label: 'Purple' },
-                                      { color: 'hsl(300, 75%, 60%)', label: 'Magenta' },
-                                      { color: 'hsl(0, 0%, 100%)', label: 'White' }
+                                      { color: '#000000', label: 'Black' },
+                                      { color: '#FFFFFF', label: 'White' },
+                                      { color: '#FF0000', label: 'Red' },
+                                      { color: '#00FF00', label: 'Green' },
+                                      { color: '#0000FF', label: 'Blue' },
+                                      { color: '#FFFF00', label: 'Yellow' },
+                                      { color: '#FF6600', label: 'Orange' },
+                                      { color: '#FF00FF', label: 'Magenta' },
+                                      { color: '#00FFFF', label: 'Cyan' },
+                                      { color: '#808080', label: 'Gray' },
+                                      { color: '#C0C0C0', label: 'Silver' },
+                                      { color: '#800000', label: 'Maroon' },
+                                      { color: '#008000', label: 'Dark Green' },
+                                      { color: '#000080', label: 'Navy' },
+                                      { color: '#FFA500', label: 'Dark Orange' },
+                                      { color: '#D2691E', label: 'Chocolate' }
                                     ]
                                   },
                                   fontBackgroundColor: {
-                                    columns: 5,
+                                    columns: 8,
                                     colors: [
-                                      { color: 'hsl(0, 0%, 100%)', label: 'White (default)' },
-                                      { color: 'hsl(60, 75%, 60%)', label: 'Yellow highlight' },
-                                      { color: 'hsl(120, 75%, 60%)', label: 'Green highlight' },
-                                      { color: 'hsl(240, 75%, 60%)', label: 'Blue highlight' },
-                                      { color: 'hsl(0, 75%, 60%)', label: 'Red highlight' },
-                                      { color: 'hsl(30, 75%, 60%)', label: 'Orange highlight' },
-                                      { color: 'hsl(300, 75%, 60%)', label: 'Pink highlight' },
-                                      { color: 'hsl(270, 75%, 60%)', label: 'Purple highlight' }
+                                      { color: '#FFFF00', label: 'Yellow' },
+                                      { color: '#00FF00', label: 'Green' },
+                                      { color: '#FF6600', label: 'Orange' },
+                                      { color: '#FF00FF', label: 'Magenta' },
+                                      { color: '#00FFFF', label: 'Cyan' },
+                                      { color: '#FFFFFF', label: 'White' },
+                                      { color: '#C0C0C0', label: 'Gray' },
+                                      { color: '#FFC0CB', label: 'Pink' },
+                                      { color: '#FFE4B5', label: 'Moccasin' },
+                                      { color: '#E6E6FA', label: 'Lavender' },
+                                      { color: '#F0FFFF', label: 'Azure' },
+                                      { color: '#FFFACD', label: 'Lemon Chiffon' },
+                                      { color: '#F0FFF0', label: 'Honeydew' },
+                                      { color: '#F5F5DC', label: 'Beige' },
+                                      { color: '#FFE4E1', label: 'Misty Rose' },
+                                      { color: '#FAFAD2', label: 'Light Goldenrod' }
+                                    ]
+                                  },
+                                  highlight: {
+                                    options: [
+                                      { model: 'yellowMarker', class: 'pen-yellow', title: 'Yellow Marker', color: '#FFFF00', type: 'marker' },
+                                      { model: 'greenMarker', class: 'pen-green', title: 'Green Marker', color: '#00FF00', type: 'marker' },
+                                      { model: 'pinkMarker', class: 'pen-pink', title: 'Pink Marker', color: '#FF69B4', type: 'marker' },
+                                      { model: 'blueMarker', class: 'pen-blue', title: 'Blue Marker', color: '#00BFFF', type: 'marker' },
+                                      { model: 'redPen', class: 'pen-red', title: 'Red Pen', color: '#FF0000', type: 'pen' },
+                                      { model: 'greenPen', class: 'pen-green', title: 'Green Pen', color: '#00A651', type: 'pen' }
                                     ]
                                   },
                                   heading: {
@@ -676,8 +615,7 @@ const RichTextPageEditor = () => {
                                       { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
                                       { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
                                       { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-                                      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
-                                      { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+                                      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
                                     ]
                                   }
                                 }}

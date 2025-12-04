@@ -14,6 +14,7 @@ import CustomDropdownMenu from "./Dropdown/Menu";
 import Schedule from "./Schedule/Schedule";
 import { ProtectedRoute, AdminRoute } from "./ProtectedRoute/ProtectedRoute";
 import AdminOnly from "./AdminOnly/AdminOnly";
+import EnhancedTextEditor from "./RichTextEditor/EnhancedTextEditor";
 
 export {
     ScrollToTop,
@@ -37,4 +38,5 @@ export {
     CustomDropdownToggle,
     CustomDropdownMenu,
     Schedule,
+    EnhancedTextEditor,
 }
