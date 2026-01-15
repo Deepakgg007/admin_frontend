@@ -42,6 +42,7 @@ import TaskManagement from "../pages/Tasks/TaskManagement";
 import TaskForm from "../pages/Tasks/TaskForm";
 import TaskDetail from "../pages/Tasks/TaskDetail";
 import QuestionForm from "../pages/Tasks/QuestionForm";
+import MCQSetForm from "../pages/Tasks/MCQSetForm";
 import RichTextPageEditor from "../pages/Tasks/RichTextPageEditor";
 import DocumentForm from "../pages/Tasks/DocumentForm";
 import VideoForm from "../pages/Tasks/VideoForm";
@@ -134,6 +135,7 @@ function Router() {
           <Route path="task-form/:taskId" element={<AdminRoute><TaskForm /></AdminRoute>} />
           <Route path="task-detail/:taskId" element={<AdminRoute><TaskDetail /></AdminRoute>} />
           <Route path="question-form/:taskId" element={<AdminRoute><QuestionForm /></AdminRoute>} />
+          <Route path="mcq-set-form/:taskId" element={<AdminRoute><MCQSetForm /></AdminRoute>} />
           <Route path="richtext-page-editor/:taskId" element={<AdminRoute><RichTextPageEditor /></AdminRoute>} />
           <Route path="richtext-page-editor/:taskId/:pageId" element={<AdminRoute><RichTextPageEditor /></AdminRoute>} />
           <Route path="document-form/:taskId" element={<AdminRoute><DocumentForm /></AdminRoute>} />

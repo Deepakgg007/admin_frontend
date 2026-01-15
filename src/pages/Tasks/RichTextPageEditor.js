@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, Button, Form, Badge, Alert } from 'react-bootstrap';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import Layout from '../../layout/default';
 import { Block, BlockHead, BlockHeadContent, BlockTitle, Icon } from '../../components';
 import { API_BASE_URL } from '../../services/apiBase';
@@ -96,7 +94,6 @@ function Base64UploadAdapterPlugin(editor) {
 const RichTextPageEditor = () => {
   const { taskId, pageId } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const isEdit = !!pageId;
 
   const [task, setTask] = useState(null);
@@ -109,6 +106,7 @@ const RichTextPageEditor = () => {
   const [deletedBlocks, setDeletedBlocks] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [editorInstances, setEditorInstances] = useState({});
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('authToken');
@@ -127,6 +125,118 @@ const RichTextPageEditor = () => {
       setDeletedBlocks([]);
     }
   }, [taskId, pageId]);
+
+  // Initialize CKEditor for text blocks
+  useEffect(() => {
+    // Disable CKEditor version check warning
+    if (window.CKEDITOR) {
+      window.CKEDITOR.config.versionCheck = false;
+    }
+
+    // Wait for CKEditor to load
+    const initEditors = () => {
+      if (!window.CKEDITOR) {
+        console.log('CKEditor not loaded yet, waiting...');
+        return;
+      }
+
+      // Disable version check globally
+      window.CKEDITOR.config.versionCheck = false;
+
+      blocks.forEach((block) => {
+        if (block.type === 'text') {
+          const editorId = `editor-${block.id}`;
+
+          // Check if editor already exists
+          if (window.CKEDITOR.instances[editorId]) {
+            console.log('Editor already exists:', editorId);
+            return;
+          }
+
+          // Check if the textarea element exists
+          const element = document.getElementById(editorId);
+          if (!element) {
+            console.log('Element not found:', editorId);
+            return;
+          }
+
+          console.log('Initializing CKEditor for:', editorId);
+
+          try {
+            const editor = window.CKEDITOR.replace(editorId, {
+              height: 400,
+              versionCheck: false, // Disable version check warning
+              toolbar: [
+                { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+                { name: 'colors', items: ['TextColor', 'BGColor'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike'] },
+                { name: 'paragraph', items: ['NumberedList', 'BulletedList', 'Outdent', 'Indent', 'Blockquote'] },
+                { name: 'links', items: ['Link', 'Unlink'] },
+                { name: 'insert', items: ['Image', 'Table', 'HorizontalRule'] },
+                { name: 'tools', items: ['Maximize'] },
+                { name: 'document', items: ['Source'] }
+              ],
+              removePlugins: 'elementspath',
+              resize_enabled: true,
+              allowedContent: true,
+              extraAllowedContent: '*(*){*}[*]',
+              font_names: 'Arial/Arial, Helvetica, sans-serif;' +
+                'Times New Roman/Times New Roman, Times, serif;' +
+                'Courier New/Courier New, Courier, monospace;' +
+                'Verdana;Georgia;Palatino;Garamond;Comic Sans MS;Trebuchet MS;Arial Black;Impact',
+              fontSize_sizes: '8/8px;10/10px;12/12px;14/14px;16/16px;18/18px;20/20px;22/22px;24/24px;26/26px;28/28px;36/36px;48/48px;72/72px',
+              // Ensure toolbar is visible
+              toolbarCanCollapse: false,
+              toolbarStartupExpanded: true
+            });
+
+            editor.on('change', function() {
+              const data = editor.getData();
+              updateBlock(block.id, 'content', data);
+            });
+
+            // Also listen to key events to capture changes
+            editor.on('key', function() {
+              const data = editor.getData();
+              updateBlock(block.id, 'content', data);
+            });
+
+            setEditorInstances(prev => ({ ...prev, [editorId]: editor }));
+            console.log('CKEditor initialized successfully:', editorId);
+          } catch (error) {
+            console.error('CKEditor initialization error:', error);
+          }
+        }
+      });
+    };
+
+    // Try multiple times to initialize in case CKEditor is still loading
+    const timer1 = setTimeout(initEditors, 300);
+    const timer2 = setTimeout(initEditors, 600);
+    const timer3 = setTimeout(initEditors, 1000);
+
+    // Cleanup function
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+
+      // Destroy all editor instances for this component
+      blocks.forEach((block) => {
+        if (block.type === 'text') {
+          const editorId = `editor-${block.id}`;
+          if (window.CKEDITOR && window.CKEDITOR.instances[editorId]) {
+            try {
+              window.CKEDITOR.instances[editorId].destroy(true);
+              console.log('Destroyed editor:', editorId);
+            } catch (e) {
+              console.error('Error destroying editor:', e);
+            }
+          }
+        }
+      });
+    };
+  }, [blocks.length]);
 
   const fetchTask = async () => {
     try {
@@ -161,6 +271,7 @@ const RichTextPageEditor = () => {
       const allBlocks = [];
 
       (page.text_blocks || []).forEach(block => {
+        // All text blocks are treated as text blocks
         allBlocks.push({
           id: `text-${block.id}`,
           existingId: block.id,
@@ -193,6 +304,16 @@ const RichTextPageEditor = () => {
         });
       });
 
+      (page.highlight_blocks || []).forEach(block => {
+        allBlocks.push({
+          id: `highlight-${block.id}`,
+          existingId: block.id,
+          type: 'highlight',
+          order: block.order,
+          content: block.content
+        });
+      });
+
       allBlocks.sort((a, b) => a.order - b.order);
       setBlocks(allBlocks);
     } catch (error) {
@@ -221,7 +342,8 @@ const RichTextPageEditor = () => {
       order: blocks.length,
       ...(type === 'text' && { content: '' }),
       ...(type === 'code' && { code: '', language: 'python' }),
-      ...(type === 'video' && { title: '', youtube_url: '', description: '' })
+      ...(type === 'video' && { title: '', youtube_url: '', description: '' }),
+      ...(type === 'highlight' && { content: '', color: '#000000', textColor: '#FFFFFF' })
     };
     setBlocks([...blocks, newBlock]);
   };
@@ -274,6 +396,9 @@ const RichTextPageEditor = () => {
       if (block.type === 'video' && !block.youtube_url?.trim()) {
         newErrors[`block-${index}`] = 'YouTube URL is required';
       }
+      if (block.type === 'highlight' && !block.content?.trim()) {
+        newErrors[`block-${index}`] = 'Highlight content is required';
+      }
     });
 
     setErrors(newErrors);
@@ -283,7 +408,45 @@ const RichTextPageEditor = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    // Get latest data from all CKEditor instances before validation
+    const updatedBlocks = blocks.map(block => {
+      if (block.type === 'text') {
+        const editorId = `editor-${block.id}`;
+        if (window.CKEDITOR && window.CKEDITOR.instances[editorId]) {
+          const editorData = window.CKEDITOR.instances[editorId].getData();
+          return { ...block, content: editorData };
+        }
+      }
+      return block;
+    });
+
+    // Update the blocks state with latest editor data
+    setBlocks(updatedBlocks);
+
+    // Use updatedBlocks for validation instead of state blocks
+    const newErrors = {};
+
+    if (!pageData.title.trim()) {
+      newErrors.title = 'Title is required';
+    }
+
+    updatedBlocks.forEach((block, index) => {
+      if (block.type === 'text' && !block.content?.trim()) {
+        newErrors[`block-${index}`] = 'Text content is required';
+      }
+      if (block.type === 'code' && !block.code?.trim()) {
+        newErrors[`block-${index}`] = 'Code content is required';
+      }
+      if (block.type === 'video' && !block.youtube_url?.trim()) {
+        newErrors[`block-${index}`] = 'YouTube URL is required';
+      }
+      if (block.type === 'highlight' && !block.content?.trim()) {
+        newErrors[`block-${index}`] = 'Highlight content is required';
+      }
+    });
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
       Swal.fire('Validation Error', 'Please fill all required fields', 'error');
       return;
     }
@@ -323,7 +486,9 @@ const RichTextPageEditor = () => {
           ? `/api/task-text-blocks/${block.existingId}/`
           : block.type === 'code'
           ? `/api/task-code-blocks/${block.existingId}/`
-          : `/api/task-video-blocks/${block.existingId}/`;
+          : block.type === 'video'
+          ? `/api/task-video-blocks/${block.existingId}/`
+          : `/api/task-highlight-blocks/${block.existingId}/`;
 
         deletePromises.push(
           axios.delete(`${API_BASE_URL}${endpoint}`, { headers: getAuthHeaders() })
@@ -335,9 +500,9 @@ const RichTextPageEditor = () => {
         await Promise.all(deletePromises);
       }
 
-      // Separate blocks into new and existing
-      const newBlocks = blocks.filter(block => !block.existingId);
-      const existingBlocks = blocks.filter(block => block.existingId);
+      // Separate blocks into new and existing (use updatedBlocks to ensure we have latest data)
+      const newBlocks = updatedBlocks.filter(block => !block.existingId);
+      const existingBlocks = updatedBlocks.filter(block => block.existingId);
 
       // Update existing blocks with new order and content
       const updatePromises = existingBlocks.map((block, index) => {
@@ -358,6 +523,9 @@ const RichTextPageEditor = () => {
           blockPayload.title = block.title;
           blockPayload.youtube_url = block.youtube_url;
           blockPayload.description = block.description;
+        } else if (block.type === 'highlight') {
+          endpoint = `${API_BASE_URL}/api/task-highlight-blocks/${block.existingId}/`;
+          blockPayload.content = block.content;
         }
 
         return axios.patch(endpoint, blockPayload, { headers: getAuthHeaders() });
@@ -368,9 +536,9 @@ const RichTextPageEditor = () => {
       }
 
       // Create new blocks
-      const createPromises = newBlocks.map((block, index) => {
+      const createPromises = newBlocks.map((block) => {
         // Calculate the correct order: new blocks follow existing ones in the UI order
-        const blockIndex = blocks.indexOf(block);
+        const blockIndex = updatedBlocks.indexOf(block);
 
         const blockPayload = {
           page: savedPageId,
@@ -390,6 +558,9 @@ const RichTextPageEditor = () => {
           blockPayload.title = block.title;
           blockPayload.youtube_url = block.youtube_url;
           blockPayload.description = block.description;
+        } else if (block.type === 'highlight') {
+          endpoint = `${API_BASE_URL}/api/task-highlight-blocks/`;
+          blockPayload.content = block.content;
         }
 
         return axios.post(endpoint, blockPayload, { headers: getAuthHeaders() });
@@ -487,6 +658,9 @@ const RichTextPageEditor = () => {
                     <Button variant="info" size="sm" onClick={() => addBlock('video')}>
                       <Icon name="video" /> Add Video
                     </Button>
+                    <Button variant="dark" size="sm" onClick={() => addBlock('highlight')}>
+                      <Icon name="file-text" /> Add Highlight Content
+                    </Button>
                   </div>
                 </Card.Header>
                 <Card.Body>
@@ -499,7 +673,12 @@ const RichTextPageEditor = () => {
                       <Card key={block.id} className="mb-3 border">
                         <Card.Header className="d-flex justify-content-between align-items-center bg-light">
                           <div>
-                            <Badge bg={block.type === 'text' ? 'primary' : block.type === 'code' ? 'success' : 'info'}>
+                            <Badge bg={
+                              block.type === 'text' ? 'primary' :
+                              block.type === 'code' ? 'success' :
+                              block.type === 'video' ? 'info' :
+                              'warning'
+                            }>
                               {block.type.toUpperCase()}
                             </Badge>
                             <span className="ms-2">Block {index + 1}</span>
@@ -534,91 +713,10 @@ const RichTextPageEditor = () => {
                           {block.type === 'text' && (
                             <Form.Group>
                               <Form.Label>Text Content <span className="text-danger">*</span></Form.Label>
-                              <CKEditor
-                                editor={ClassicEditor}
-                                data={block.content || ''}
-                                onChange={(event, editor) => {
-                                  const data = editor.getData();
-                                  updateBlock(block.id, 'content', data);
-                                }}
-                                onReady={(editor) => {
-                                  console.log('CKEditor ready');
-                                }}
-                                onError={(error) => {
-                                  console.error('CKEditor error:', error);
-                                }}
-                                config={{
-                                  extraPlugins: [Base64UploadAdapterPlugin],
-                                  toolbar: [
-                                    'heading', '|',
-                                    'bold', 'italic', 'underline', 'strikethrough', '|',
-                                    'fontColor', 'fontBackgroundColor', 'highlight', '|',
-                                    'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-                                    'link', 'blockQuote', 'insertTable', '|',
-                                    'removeFormat', '|',
-                                    'undo', 'redo'
-                                  ],
-                                  fontColor: {
-                                    columns: 8,
-                                    colors: [
-                                      { color: '#000000', label: 'Black' },
-                                      { color: '#FFFFFF', label: 'White' },
-                                      { color: '#FF0000', label: 'Red' },
-                                      { color: '#00FF00', label: 'Green' },
-                                      { color: '#0000FF', label: 'Blue' },
-                                      { color: '#FFFF00', label: 'Yellow' },
-                                      { color: '#FF6600', label: 'Orange' },
-                                      { color: '#FF00FF', label: 'Magenta' },
-                                      { color: '#00FFFF', label: 'Cyan' },
-                                      { color: '#808080', label: 'Gray' },
-                                      { color: '#C0C0C0', label: 'Silver' },
-                                      { color: '#800000', label: 'Maroon' },
-                                      { color: '#008000', label: 'Dark Green' },
-                                      { color: '#000080', label: 'Navy' },
-                                      { color: '#FFA500', label: 'Dark Orange' },
-                                      { color: '#D2691E', label: 'Chocolate' }
-                                    ]
-                                  },
-                                  fontBackgroundColor: {
-                                    columns: 8,
-                                    colors: [
-                                      { color: '#FFFF00', label: 'Yellow' },
-                                      { color: '#00FF00', label: 'Green' },
-                                      { color: '#FF6600', label: 'Orange' },
-                                      { color: '#FF00FF', label: 'Magenta' },
-                                      { color: '#00FFFF', label: 'Cyan' },
-                                      { color: '#FFFFFF', label: 'White' },
-                                      { color: '#C0C0C0', label: 'Gray' },
-                                      { color: '#FFC0CB', label: 'Pink' },
-                                      { color: '#FFE4B5', label: 'Moccasin' },
-                                      { color: '#E6E6FA', label: 'Lavender' },
-                                      { color: '#F0FFFF', label: 'Azure' },
-                                      { color: '#FFFACD', label: 'Lemon Chiffon' },
-                                      { color: '#F0FFF0', label: 'Honeydew' },
-                                      { color: '#F5F5DC', label: 'Beige' },
-                                      { color: '#FFE4E1', label: 'Misty Rose' },
-                                      { color: '#FAFAD2', label: 'Light Goldenrod' }
-                                    ]
-                                  },
-                                  highlight: {
-                                    options: [
-                                      { model: 'yellowMarker', class: 'pen-yellow', title: 'Yellow Marker', color: '#FFFF00', type: 'marker' },
-                                      { model: 'greenMarker', class: 'pen-green', title: 'Green Marker', color: '#00FF00', type: 'marker' },
-                                      { model: 'pinkMarker', class: 'pen-pink', title: 'Pink Marker', color: '#FF69B4', type: 'marker' },
-                                      { model: 'blueMarker', class: 'pen-blue', title: 'Blue Marker', color: '#00BFFF', type: 'marker' },
-                                      { model: 'redPen', class: 'pen-red', title: 'Red Pen', color: '#FF0000', type: 'pen' },
-                                      { model: 'greenPen', class: 'pen-green', title: 'Green Pen', color: '#00A651', type: 'pen' }
-                                    ]
-                                  },
-                                  heading: {
-                                    options: [
-                                      { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-                                      { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-                                      { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-                                      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
-                                    ]
-                                  }
-                                }}
+                              <textarea
+                                id={`editor-${block.id}`}
+                                defaultValue={block.content || ''}
+                                style={{ width: '100%', minHeight: '200px' }}
                               />
                               {errors[`block-${index}`] && (
                                 <div className="text-danger small mt-1">{errors[`block-${index}`]}</div>
@@ -655,7 +753,10 @@ const RichTextPageEditor = () => {
                                   style={{
                                     fontFamily: 'monospace',
                                     fontSize: '14px',
-                                    backgroundColor: '#f5f5f5'
+                                    backgroundColor: '#f5f5f5',
+                                    whiteSpace: 'pre',
+                                    overflowWrap: 'normal',
+                                    overflowX: 'auto'
                                   }}
                                   placeholder="Enter your code here..."
                                 />
@@ -695,6 +796,37 @@ const RichTextPageEditor = () => {
                                   onChange={(e) => updateBlock(block.id, 'description', e.target.value)}
                                   placeholder="Enter video description"
                                 />
+                              </Form.Group>
+                            </>
+                          )}
+
+                          {block.type === 'highlight' && (
+                            <>
+                              <Form.Group>
+                                <Form.Label>Highlight Content <span className="text-danger">*</span></Form.Label>
+                                <Form.Control
+                                  as="textarea"
+                                  rows={10}
+                                  value={block.content || ''}
+                                  onChange={(e) => updateBlock(block.id, 'content', e.target.value)}
+                                  isInvalid={!!errors[`block-${index}`]}
+                                  placeholder="Enter text to highlight..."
+                                  style={{
+                                    fontFamily: 'monospace',
+                                    fontSize: '14px',
+                                    backgroundColor: '#000000',
+                                    color: '#FFFFFF',
+                                    border: '2px solid #000000',
+                                    padding: '10px',
+                                    whiteSpace: 'pre',
+                                    overflowWrap: 'normal',
+                                    overflowX: 'auto'
+                                  }}
+                                />
+                                <Form.Control.Feedback type="invalid">{errors[`block-${index}`]}</Form.Control.Feedback>
+                                <Form.Text className="text-muted">
+                                  This text will be displayed in a black highlight box with white text. Live preview above!
+                                </Form.Text>
                               </Form.Group>
                             </>
                           )}

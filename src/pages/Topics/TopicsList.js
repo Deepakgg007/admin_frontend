@@ -48,7 +48,6 @@ function TopicsList() {
       setLoading(true);
       try {
         const params = {
-          per_page: 1000,
           search: searchQuery
         };
 
@@ -57,24 +56,40 @@ function TopicsList() {
           params.course = courseFilter;
         }
 
-        const response = await axios.get(
-          `${API_BASE_URL}/api/topics/`,
-          {
-            params,
+        // Fetch all pages of topics
+        let allTopics = [];
+        let nextUrl = `${API_BASE_URL}/api/topics/`;
+
+        while (nextUrl) {
+          const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
+
+          const response = await axios.get(normalizedUrl, {
+            params: nextUrl === `${API_BASE_URL}/api/topics/` ? params : {},
             headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          const res = response.data;
+          const pageResults = res?.data || res?.results || [];
+
+          if (Array.isArray(pageResults)) {
+            allTopics = [...allTopics, ...pageResults];
           }
-        );
 
-
-        const res = response.data;
-        let data = res?.data || res?.results || [];
+          // Check for next page
+          let nextUrlFromResponse = res?.next || null;
+          if (nextUrlFromResponse) {
+            nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
+          } else {
+            nextUrl = null;
+          }
+        }
 
         // Client-side filtering by creator type
         if (creatorFilter !== "all") {
-          data = data.filter(topic => topic.creator_type === creatorFilter);
+          allTopics = allTopics.filter(topic => topic.creator_type === creatorFilter);
         }
 
-        setTopics(data);
+        setTopics(allTopics);
       } catch (error) {
         setTopics([]);
 

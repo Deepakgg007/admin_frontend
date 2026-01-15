@@ -152,14 +152,33 @@ const TaskManagement = () => {
 
   const fetchAllTopics = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/topics/`, {
-        params: {
-          limit: 10000 // Fetch all topics by requesting a large limit
-        },
-        headers: getAuthHeaders()
-      });
-      const topicData = response.data.results || response.data.data || response.data;
-      setAllTopics(Array.isArray(topicData) ? topicData : []);
+      // Fetch all pages of topics
+      let allTopics = [];
+      let nextUrl = `${API_BASE_URL}/api/topics/`;
+
+      while (nextUrl) {
+        const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
+
+        const response = await axios.get(normalizedUrl, {
+          headers: getAuthHeaders()
+        });
+
+        const pageResults = response.data.results || response.data.data || response.data;
+
+        if (Array.isArray(pageResults)) {
+          allTopics = [...allTopics, ...pageResults];
+        }
+
+        // Check for next page
+        let nextUrlFromResponse = response.data.next || null;
+        if (nextUrlFromResponse) {
+          nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
+        } else {
+          nextUrl = null;
+        }
+      }
+
+      setAllTopics(allTopics);
     } catch (error) {
       console.error('Error fetching all topics:', error);
     }

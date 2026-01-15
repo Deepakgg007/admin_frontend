@@ -44,6 +44,37 @@ const QuestionForm = () => {
   });
 
   useEffect(() => {
+    // Reset form state first
+    if (!questionId) {
+      setMcqQuestions([{
+        question_text: '',
+        marks: 1,
+        mcq_choice_1_text: '',
+        mcq_choice_1_is_correct: false,
+        mcq_choice_2_text: '',
+        mcq_choice_2_is_correct: false,
+        mcq_choice_3_text: '',
+        mcq_choice_3_is_correct: false,
+        mcq_choice_4_text: '',
+        mcq_choice_4_is_correct: false,
+        mcq_solution_explanation: ''
+      }]);
+      setCodingQuestion({
+        question_text: '',
+        marks: 10,
+        question_description: '',
+        input_description: '',
+        sample_input: '',
+        output_format_description: '',
+        sample_output: '',
+        language: 'python',
+        constraints: '',
+        hints: '',
+        starter_code: ''
+      });
+      setQuestionType('mcq'); // Reset question type to default
+    }
+
     fetchTask();
     if (questionId) {
       fetchQuestion();

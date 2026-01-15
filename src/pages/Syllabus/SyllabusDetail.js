@@ -54,13 +54,34 @@ function SyllabusDetail() {
 
   const fetchAvailableTopics = async (courseId) => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/topics/`, {
-        params: { course: courseId, per_page: 1000 },
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = res.data.data || res.data.results || [];
-      console.log('📌 Available topics:', data);
-      setAvailableTopics(data);
+      // Fetch all pages of topics
+      let allTopics = [];
+      let nextUrl = `${API_BASE_URL}/api/topics/?course=${courseId}`;
+
+      while (nextUrl) {
+        const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
+
+        const res = await axios.get(normalizedUrl, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+
+        const pageResults = res.data.data || res.data.results || [];
+
+        if (Array.isArray(pageResults)) {
+          allTopics = [...allTopics, ...pageResults];
+        }
+
+        // Check for next page
+        let nextUrlFromResponse = res.data.next || null;
+        if (nextUrlFromResponse) {
+          nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
+        } else {
+          nextUrl = null;
+        }
+      }
+
+      console.log('📌 Available topics:', allTopics);
+      setAvailableTopics(allTopics);
     } catch (error) {
       console.error(error);
     }

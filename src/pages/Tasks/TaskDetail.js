@@ -39,15 +39,17 @@ const TaskDetail = () => {
       setTask(taskData);
 
       // Fetch all content types in parallel
-      const [docsRes, videosRes, questionsRes, pagesRes] = await Promise.all([
+      const [docsRes, videosRes, mcqSetsRes, questionsRes, pagesRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/task-documents/?task=${taskId}`, { headers: getAuthHeaders() }),
         axios.get(`${API_BASE_URL}/api/task-videos/?task=${taskId}`, { headers: getAuthHeaders() }),
+        axios.get(`${API_BASE_URL}/api/task-mcq-sets/?task=${taskId}`, { headers: getAuthHeaders() }),
         axios.get(`${API_BASE_URL}/api/task-questions/?task=${taskId}`, { headers: getAuthHeaders() }),
         axios.get(`${API_BASE_URL}/api/task-richtext-pages/?task=${taskId}`, { headers: getAuthHeaders() })
       ]);
 
       const documents = docsRes.data.results || docsRes.data || [];
       const videos = videosRes.data.results || videosRes.data || [];
+      const mcqSets = mcqSetsRes.data.results || mcqSetsRes.data || [];
       const questions = questionsRes.data.results || questionsRes.data || [];
       const pages = pagesRes.data.results || pagesRes.data || [];
 
@@ -78,22 +80,21 @@ const TaskDetail = () => {
         });
       });
 
-      // Add questions as SEPARATE GROUPS by type
-      const mcqQuestions = questions.filter(q => q.question_type === 'mcq');
-      const codingQuestions = questions.filter(q => q.question_type === 'coding');
-
-      if (mcqQuestions.length > 0) {
-        const firstMcqOrder = mcqQuestions[0].order || 0;
+      // Add MCQ Sets (each set is displayed separately, like pages)
+      mcqSets.forEach(set => {
         unified.push({
-          type: 'questions_group',
-          id: 'mcq_questions',
-          title: `MCQ Questions (${mcqQuestions.length} items)`,
-          order: firstMcqOrder,
-          questions: mcqQuestions,
+          type: 'mcq_set',
+          id: set.id,
+          title: set.title || 'Untitled MCQ Set',
+          order: set.order || 0,
+          object: set,
           isGroup: true,
-          questionType: 'mcq'
+          questions: set.mcq_questions || []
         });
-      }
+      });
+
+      // Add remaining individual questions (coding questions without sets)
+      const codingQuestions = questions.filter(q => q.question_type === 'coding');
 
       if (codingQuestions.length > 0) {
         const firstCodingOrder = codingQuestions[0].order || 0;
@@ -162,8 +163,15 @@ const TaskDetail = () => {
               { headers: getAuthHeaders() }
             )
           );
+        } else if (item.type === 'mcq_set') {
+          promises.push(
+            axios.patch(`${API_BASE_URL}/api/task-mcq-sets/${item.id}/`,
+              { order: item.order },
+              { headers: getAuthHeaders() }
+            )
+          );
         } else if (item.type === 'questions_group') {
-          // Update all questions with the same order
+          // Update all questions in the group with the same order
           item.questions.forEach(q => {
             promises.push(
               axios.patch(`${API_BASE_URL}/api/task-questions/${q.id}/`,
@@ -218,6 +226,7 @@ const TaskDetail = () => {
         let endpoint = '';
         if (item.type === 'document') endpoint = `/api/task-documents/${item.id}/`;
         else if (item.type === 'video') endpoint = `/api/task-videos/${item.id}/`;
+        else if (item.type === 'mcq_set') endpoint = `/api/task-mcq-sets/${item.id}/`;
         else if (item.type === 'page') endpoint = `/api/task-richtext-pages/${item.id}/`;
 
         if (endpoint) {
@@ -328,12 +337,42 @@ const TaskDetail = () => {
                       </div>
                       <div className="flex-grow-1">
                         <div className="d-flex align-items-center mb-2">
+                          {item.type === 'mcq_set' && <Badge bg="primary" className="me-2">MCQ Set</Badge>}
                           {item.type === 'questions_group' && <Badge bg="info" className="me-2">Questions Group</Badge>}
                           {item.type === 'document' && <Badge bg="warning" className="me-2">Document</Badge>}
                           {item.type === 'video' && <Badge bg="success" className="me-2">Video</Badge>}
                           {item.type === 'page' && <Badge bg="secondary" className="me-2">Page</Badge>}
                           <strong>{item.title}</strong>
                         </div>
+
+                        {/* MCQ Set */}
+                        {item.type === 'mcq_set' && (
+                          <div className="mt-2 ps-3">
+                            <p className="text-muted mb-2">
+                              <Icon name="info" /> MCQ Assessment - {item.questions.length} question(s), Total Marks: {item.object.total_marks || 0}
+                            </p>
+                            {item.object.description && <p className="text-muted small">{item.object.description}</p>}
+                            {item.questions.map((q, qIdx) => (
+                              <div key={q.id} className="mb-2 p-2 bg-light rounded">
+                                <div className="d-flex justify-content-between">
+                                  <div>
+                                    <strong>Q{qIdx + 1}:</strong>
+                                    <Badge bg="primary" className="ms-2">MCQ - {q.marks} marks</Badge>
+                                    <p className="mb-0 mt-1">{q.question_text?.substring(0, 100)}...</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="mt-2 d-flex gap-2">
+                              <Link to={`/Tasks/mcq-set-form/${taskId}?edit=${item.id}`} className="btn btn-sm btn-outline-primary">
+                                <Icon name="edit" /> Edit Set
+                              </Link>
+                              <Button variant="outline-danger" size="sm" onClick={() => handleDelete(item)}>
+                                <Icon name="trash" /> Delete Set
+                              </Button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Questions Group */}
                         {item.type === 'questions_group' && (
@@ -456,8 +495,8 @@ const TaskDetail = () => {
           </Card.Header>
           <Card.Body>
             <div className="d-flex gap-2 flex-wrap">
-              <Link to={`/Tasks/question-form/${taskId}`} className="btn btn-primary">
-                <Icon name="help-circle" /> Add Question
+              <Link to={`/Tasks/mcq-set-form/${taskId}`} className="btn btn-primary">
+                <Icon name="help-circle" /> Add MCQ Set
               </Link>
               <Link to={`/Tasks/document-form/${taskId}`} className="btn btn-warning">
                 <Icon name="file-text" /> Add Document
