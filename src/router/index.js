@@ -74,6 +74,13 @@ import CertificateList from "../pages/CourseCertification/CertificateList";
 import CertificateView from "../pages/CourseCertification/CertificateView";
 import CertificateUpdate from "../pages/CourseCertification/CertificateUpdate";
 
+import QuestionBankList from "../pages/QuestionBank/QuestionBankList";
+import QuestionBankCreate from "../pages/QuestionBank/QuestionBankCreate";
+import QuestionBankEdit from "../pages/QuestionBank/QuestionBankEdit";
+import QuestionBankView from "../pages/QuestionBank/QuestionBankView";
+
+import AISettingsList from "../pages/AISettings/AISettingsList";
+
 import Dashboard from "../pages/Dashboard/Dashboard";
 import CourseCompletionReport from "../pages/CourseCompletion/CourseCompletionReport";
 import StudentReport from "../pages/Reports/StudentReport";
@@ -181,6 +188,17 @@ function Router() {
           <Route path="create-certificate" element={<AdminRoute> <CertificateCreate /> </AdminRoute>} />
           <Route path="view-certificate/:id" element={<AdminRoute> <CertificateView /> </AdminRoute>} />
           <Route path="update-certificate/:id" element={<AdminRoute> <CertificateUpdate /> </AdminRoute>} />
+        </Route>
+
+        <Route path="QuestionBank">
+          <Route path="list-questions" element={<AdminRoute> <QuestionBankList /> </AdminRoute>} />
+          <Route path="create-question" element={<AdminRoute> <QuestionBankCreate /> </AdminRoute>} />
+          <Route path="edit-question/:id" element={<AdminRoute> <QuestionBankEdit /> </AdminRoute>} />
+          <Route path="view-question/:id" element={<AdminRoute> <QuestionBankView /> </AdminRoute>} />
+        </Route>
+
+        <Route path="AISettings">
+          <Route path="list" element={<AdminRoute> <AISettingsList /> </AdminRoute>} />
         </Route>
 
         <Route path="CourseCompletion">

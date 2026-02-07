@@ -224,6 +224,14 @@ function Menu() {
         <MenuItemLink icon="check-circle" text="Course Certification" to="/Certificates/list-certificate" />
       </MenuItem>
 
+      <MenuItem>
+        <MenuItemLink icon="help" text="Question Bank" to="/QuestionBank/list-questions" />
+      </MenuItem>
+
+      <MenuItem>
+        <MenuItemLink icon="setting" text="AI Settings" to="/AISettings/list" />
+      </MenuItem>
+
       <MenuHeading text="Reports" />
       <MenuItem>
         <MenuItemLink icon="file-text" text="Completion Report" to="/CourseCompletion/completion-report" />

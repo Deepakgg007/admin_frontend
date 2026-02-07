@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, Form, Row, Col, Button, Spinner, Alert } from "react-bootstrap";
+import { Card, Form, Row, Col, Button, Spinner, Alert, Modal } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -28,6 +28,26 @@ function CertificateCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [loadingCourses, setLoadingCourses] = useState(true);
+
+  // Question Bank Import Modal state
+  const [showQuestionBankModal, setShowQuestionBankModal] = useState(false);
+  const [questionBankList, setQuestionBankList] = useState([]);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [loadingQuestionBank, setLoadingQuestionBank] = useState(false);
+
+  // AI Generation Modal state
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
+  const [aiSettings, setAISettings] = useState({
+    num_questions: 5,
+    difficulty: 'MEDIUM',
+    provider: 'OPENROUTER',
+    api_key: '',
+    model: 'openai/gpt-4o-mini',
+    temperature: 0.7,
+    max_tokens: 4000,
+    additional_context: ''
+  });
 
   // Fetch courses for dropdown
   useEffect(() => {
@@ -137,12 +157,398 @@ function CertificateCreate() {
   const deleteOption = (questionIndex, optionIndex) => {
     setForm(prev => ({
       ...prev,
-      questions: prev.questions.map((q, idx) => 
-        idx === questionIndex 
+      questions: prev.questions.map((q, idx) =>
+        idx === questionIndex
           ? { ...q, options: q.options.filter((_, oIdx) => oIdx !== optionIndex) }
           : q
       )
     }));
+  };
+
+  // Fetch Question Bank
+  const fetchQuestionBank = async (courseId) => {
+    try {
+      setLoadingQuestionBank(true);
+      const params = { per_page: 100, is_active: true };
+
+      // Filter by course if specified
+      if (courseId) {
+        params.course = courseId;
+      }
+
+      const res = await axios.get(`${API_BASE_URL}/api/admin/question-bank/questions/`, {
+        params,
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = res.data.data || res.data.results || [];
+
+      // Filter out questions that have already been imported
+      const importedQuestionBankIds = form.questions
+        .filter(q => q.question_bank_id) // Only check questions with question_bank_id
+        .map(q => q.question_bank_id);
+
+      const availableQuestions = data.filter(q => !importedQuestionBankIds.includes(q.id));
+
+      setQuestionBankList(availableQuestions);
+    } catch (err) {
+      console.error("Error fetching question bank:", err);
+      Swal.fire("Error", "Failed to fetch question bank", "error");
+    } finally {
+      setLoadingQuestionBank(false);
+    }
+  };
+
+  // Open Question Bank Modal
+  const openQuestionBankModal = () => {
+    // Check if course is selected
+    if (!form.course) {
+      Swal.fire({
+        icon: "warning",
+        title: "Please select a course first",
+        text: "You need to select a course before importing questions from the Question Bank.",
+      });
+      return;
+    }
+
+    setShowQuestionBankModal(true);
+    setSelectedQuestions([]);
+    fetchQuestionBank(form.course);
+  };
+
+  // Toggle question selection
+  const toggleQuestionSelection = (questionId) => {
+    setSelectedQuestions(prev =>
+      prev.includes(questionId)
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
+  // Toggle all questions selection
+  const toggleSelectAllQuestions = () => {
+    if (selectedQuestions.length === questionBankList.length) {
+      // If all are selected, deselect all
+      setSelectedQuestions([]);
+    } else {
+      // Select all questions
+      setSelectedQuestions(questionBankList.map(q => q.id));
+    }
+  };
+
+  // Import selected questions from Question Bank
+  const importQuestionsFromBank = async () => {
+    if (selectedQuestions.length === 0) {
+      Swal.fire("Warning", "Please select at least one question", "warning");
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      Swal.fire({
+        title: 'Importing Questions...',
+        text: 'Please wait while we fetch the complete question details.',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Fetch full details for each selected question (to get options)
+      const questionDetailsPromises = selectedQuestions.map(questionId =>
+        axios.get(`${API_BASE_URL}/api/admin/question-bank/questions/${questionId}/`, {
+          headers: { Authorization: `Bearer ${authToken}` }
+        })
+      );
+
+      const questionResponses = await Promise.all(questionDetailsPromises);
+      const selectedQuestionData = questionResponses.map(res => res.data);
+
+      const maxOrder = form.questions.length > 0
+        ? Math.max(...form.questions.map(q => q.order))
+        : -1;
+
+      const newQuestions = selectedQuestionData.map((q, idx) => {
+        // Now we have the full question data with options
+        const questionOptions = q.options || [];
+
+        console.log(`Question ${idx + 1}:`, q.text);
+        console.log(`- Has ${questionOptions.length} options:`, questionOptions);
+
+        if (questionOptions.length < 2) {
+          console.warn(`Warning: Question "${q.text}" has less than 2 options!`);
+        }
+
+        const mappedOptions = questionOptions.map((opt, optIdx) => ({
+          id: Date.now() + idx * 100 + optIdx,
+          text: opt.text,
+          is_correct: opt.is_correct || false
+        }));
+
+        console.log(`- Mapped options:`, mappedOptions);
+
+        return {
+          id: Date.now() + idx,
+          question_bank_id: q.id, // Store original question bank ID to prevent duplicates
+          text: q.text,
+          order: maxOrder + idx + 1,
+          weight: q.weight || 1,
+          is_multiple_correct: q.is_multiple_correct || false,
+          is_active: true,
+          options: mappedOptions
+        };
+      });
+
+      console.log('Final newQuestions array:', newQuestions);
+
+      // Validate that all questions have at least 2 options
+      const questionsWithoutEnoughOptions = newQuestions.filter(q => !q.options || q.options.length < 2);
+      if (questionsWithoutEnoughOptions.length > 0) {
+        console.error('Questions without enough options:', questionsWithoutEnoughOptions);
+        Swal.fire({
+          icon: "error",
+          title: "Import Failed",
+          html: `${questionsWithoutEnoughOptions.length} question(s) don't have enough answer options.<br><br>` +
+                `Questions in the Question Bank must have at least 2 options to be imported.<br><br>` +
+                `Please add options to these questions in the Question Bank first.`,
+        });
+        return;
+      }
+
+      setForm(prev => ({
+        ...prev,
+        questions: [...prev.questions, ...newQuestions]
+      }));
+
+      setShowQuestionBankModal(false);
+      Swal.fire({
+        icon: "success",
+        title: "Questions imported successfully!",
+        text: `${selectedQuestions.length} question(s) added`,
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error("Error importing questions:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Import Failed",
+        text: "Failed to import questions. Please try again.",
+      });
+    }
+  };
+
+  // Open AI Generation Modal
+  const openAIModal = () => {
+    if (!form.course) {
+      Swal.fire({
+        icon: "warning",
+        title: "Please select a course first",
+        text: "You need to select a course before generating questions with AI.",
+      });
+      return;
+    }
+    setShowAIModal(true);
+  };
+
+  // Handle AI settings change
+  const handleAISettingsChange = (e) => {
+    const { name, value } = e.target;
+    setAISettings(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Generate questions with AI
+  const generateQuestionsWithAI = async () => {
+    try {
+      setGeneratingAI(true);
+
+      // Validate inputs
+      if (!aiSettings.api_key) {
+        Swal.fire("Error", "Please enter API Key", "error");
+        return;
+      }
+
+      if (aiSettings.num_questions < 1 || aiSettings.num_questions > 20) {
+        Swal.fire("Error", "Number of questions must be between 1 and 20", "error");
+        return;
+      }
+
+      // Get course name
+      const selectedCourse = courses.find(c => c.id === parseInt(form.course));
+      const courseName = selectedCourse?.title || "selected course";
+
+      // Build the AI prompt
+      const prompt = `Generate ${aiSettings.num_questions} multiple-choice questions for a certification exam.
+
+Course: ${courseName}
+Difficulty: ${aiSettings.difficulty}
+${aiSettings.additional_context ? `Additional Context: ${aiSettings.additional_context}` : ''}
+
+Requirements:
+1. Each question must have 4 options
+2. Mark which option(s) are correct
+3. Provide a brief explanation for the correct answer
+4. Questions should be relevant to the course topic
+5. Difficulty level should match "${aiSettings.difficulty}"
+
+Return ONLY a valid JSON array in this exact format:
+[
+  {
+    "text": "Question text here?",
+    "is_multiple_correct": false,
+    "explanation": "Brief explanation of the correct answer",
+    "options": [
+      {"text": "Option 1", "is_correct": true},
+      {"text": "Option 2", "is_correct": false},
+      {"text": "Option 3", "is_correct": false},
+      {"text": "Option 4", "is_correct": false}
+    ]
+  }
+]`;
+
+      // Call AI API based on provider
+      let aiResponse;
+
+      if (aiSettings.provider === 'OPENROUTER') {
+        const response = await axios.post(
+          'https://openrouter.ai/api/v1/chat/completions',
+          {
+            model: aiSettings.model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert educational content creator. Generate high-quality multiple choice questions in valid JSON format only. Do not include any text outside the JSON.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: parseFloat(aiSettings.temperature),
+            max_tokens: parseInt(aiSettings.max_tokens)
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${aiSettings.api_key}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': window.location.origin,
+              'X-Title': 'Educational Platform Question Generator'
+            }
+          }
+        );
+        aiResponse = response.data.choices[0].message.content;
+      } else if (aiSettings.provider === 'GEMINI') {
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${aiSettings.model}:generateContent?key=${aiSettings.api_key}`,
+          {
+            contents: [{
+              parts: [{
+                text: `You are an expert educational content creator. Generate high-quality multiple choice questions in valid JSON format only. Do not include any text outside the JSON.\n\n${prompt}`
+              }]
+            }],
+            generationConfig: {
+              temperature: parseFloat(aiSettings.temperature),
+              maxOutputTokens: parseInt(aiSettings.max_tokens)
+            }
+          },
+          {
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+        aiResponse = response.data.candidates[0].content.parts[0].text;
+      } else if (aiSettings.provider === 'ZAI') {
+        const response = await axios.post(
+          'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+          {
+            model: aiSettings.model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert educational content creator. Generate high-quality multiple choice questions in valid JSON format only. Do not include any text outside the JSON.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: parseFloat(aiSettings.temperature),
+            max_tokens: parseInt(aiSettings.max_tokens)
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${aiSettings.api_key}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        aiResponse = response.data.choices[0].message.content;
+      }
+
+      // Parse the AI response
+      let generatedQuestions;
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          generatedQuestions = JSON.parse(jsonMatch[0]);
+        } else {
+          generatedQuestions = JSON.parse(aiResponse);
+        }
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        console.error("AI Response:", aiResponse);
+        Swal.fire("Error", "Failed to parse AI response. Please try again.", "error");
+        return;
+      }
+
+      // Validate and format questions
+      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+        Swal.fire("Error", "No valid questions generated. Please try again.", "error");
+        return;
+      }
+
+      const maxOrder = form.questions.length > 0
+        ? Math.max(...form.questions.map(q => q.order))
+        : -1;
+
+      const formattedQuestions = generatedQuestions.map((q, idx) => ({
+        id: Date.now() + idx,
+        text: q.text,
+        order: maxOrder + idx + 1,
+        weight: 1,
+        is_multiple_correct: q.is_multiple_correct || false,
+        is_active: true,
+        options: q.options.map((opt, optIdx) => ({
+          id: Date.now() + idx * 100 + optIdx,
+          text: opt.text,
+          is_correct: opt.is_correct || false
+        }))
+      }));
+
+      // Add questions to form
+      setForm(prev => ({
+        ...prev,
+        questions: [...prev.questions, ...formattedQuestions]
+      }));
+
+      setShowAIModal(false);
+      Swal.fire({
+        icon: "success",
+        title: "Questions generated successfully!",
+        text: `${formattedQuestions.length} question(s) added from AI`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+    } catch (error) {
+      console.error("AI Generation error:", error);
+      const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate questions";
+      Swal.fire("Error", errorMessage, "error");
+    } finally {
+      setGeneratingAI(false);
+    }
   };
 
   // Handle form submission
@@ -442,9 +848,17 @@ function CertificateCreate() {
               <Card>
                 <Card.Header className="d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">Assessment Questions</h5>
-                  <Button variant="primary" size="sm" onClick={addQuestion}>
-                    <Icon name="plus" /> Add Question
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button variant="outline-success" size="sm" onClick={openAIModal}>
+                      <Icon name="spark" /> Generate with AI
+                    </Button>
+                    <Button variant="outline-primary" size="sm" onClick={openQuestionBankModal}>
+                      <Icon name="archive" /> Import from Question Bank
+                    </Button>
+                    <Button variant="primary" size="sm" onClick={addQuestion}>
+                      <Icon name="plus" /> Add Question
+                    </Button>
+                  </div>
                 </Card.Header>
                 <Card.Body>
                   {form.questions.length === 0 ? (
@@ -606,6 +1020,291 @@ function CertificateCreate() {
           </Row>
         </Form>
       </Block>
+
+      {/* AI Generation Modal */}
+      <Modal show={showAIModal} onHide={() => setShowAIModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Generate Questions with AI</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row className="g-3">
+              <Col md={12}>
+                <Alert variant="info">
+                  <Icon name="info-fill" className="me-2" />
+                  Generate MCQ questions for: <strong>{courses.find(c => c.id === parseInt(form.course))?.title || 'selected course'}</strong>
+                </Alert>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Number of Questions *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="num_questions"
+                    value={aiSettings.num_questions}
+                    onChange={handleAISettingsChange}
+                    min="1"
+                    max="20"
+                    required
+                  />
+                  <Form.Text className="text-muted">
+                    Between 1 and 20 questions
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Difficulty Level *</Form.Label>
+                  <Form.Select
+                    name="difficulty"
+                    value={aiSettings.difficulty}
+                    onChange={handleAISettingsChange}
+                    required
+                  >
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>AI Provider *</Form.Label>
+                  <Form.Select
+                    name="provider"
+                    value={aiSettings.provider}
+                    onChange={handleAISettingsChange}
+                    required
+                  >
+                    <option value="OPENROUTER">OpenRouter</option>
+                    <option value="GEMINI">Google Gemini</option>
+                    <option value="ZAI">Z.AI / BigModel</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Model Name *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="model"
+                    value={aiSettings.model}
+                    onChange={handleAISettingsChange}
+                    placeholder="e.g., openai/gpt-4o-mini"
+                    required
+                  />
+                  <Form.Text className="text-muted">
+                    {aiSettings.provider === 'OPENROUTER' && 'e.g., openai/gpt-4o-mini'}
+                    {aiSettings.provider === 'GEMINI' && 'e.g., gemini-1.5-flash'}
+                    {aiSettings.provider === 'ZAI' && 'e.g., glm-4-flash'}
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>API Key *</Form.Label>
+                  <Form.Control
+                    type="password"
+                    name="api_key"
+                    value={aiSettings.api_key}
+                    onChange={handleAISettingsChange}
+                    placeholder="Enter your API key"
+                    required
+                  />
+                  <Form.Text className="text-muted">
+                    Your API key will not be stored
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Temperature</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="temperature"
+                    value={aiSettings.temperature}
+                    onChange={handleAISettingsChange}
+                    step="0.1"
+                    min="0"
+                    max="2"
+                  />
+                  <Form.Text className="text-muted">
+                    0 = deterministic, 2 = creative (0-2)
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Max Tokens</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="max_tokens"
+                    value={aiSettings.max_tokens}
+                    onChange={handleAISettingsChange}
+                    min="100"
+                    max="16000"
+                  />
+                  <Form.Text className="text-muted">
+                    Maximum response length
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Additional Context / Rules (Optional)</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    name="additional_context"
+                    value={aiSettings.additional_context}
+                    onChange={handleAISettingsChange}
+                    placeholder="Add any specific instructions or context for the AI model..."
+                  />
+                  <Form.Text className="text-muted">
+                    e.g., "Focus on practical applications" or "Include code examples"
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAIModal(false)} disabled={generatingAI}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={generateQuestionsWithAI} disabled={generatingAI}>
+            {generatingAI ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Generating Questions...
+              </>
+            ) : (
+              <>
+                <Icon name="spark" className="me-1" />
+                Generate Questions
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Question Bank Import Modal */}
+      <Modal show={showQuestionBankModal} onHide={() => setShowQuestionBankModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Import Questions from Question Bank</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: '500px', overflowY: 'auto' }}>
+          {loadingQuestionBank ? (
+            <div className="text-center py-4">
+              <Spinner animation="border" />
+              <p className="mt-2">Loading questions...</p>
+            </div>
+          ) : questionBankList.length === 0 ? (
+            <Alert variant="info">
+              <strong>No new questions available to import.</strong>
+              <p className="mb-0 mt-2">
+                {form.questions.filter(q => q.question_bank_id).length > 0
+                  ? 'All available questions from the Question Bank have already been imported for this certificate.'
+                  : `Please create questions for ${courses.find(c => c.id === parseInt(form.course))?.title || 'this course'} in the Question Bank first.`
+                }
+              </p>
+            </Alert>
+          ) : (
+            <>
+              <Alert variant="info" className="mb-3">
+                <Icon name="info-fill" className="me-2" />
+                Showing questions for: <strong>{courses.find(c => c.id === parseInt(form.course))?.title || 'selected course'}</strong>
+                {form.questions.filter(q => q.question_bank_id).length > 0 && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      ({form.questions.filter(q => q.question_bank_id).length} question(s) already imported and hidden from this list)
+                    </small>
+                  </div>
+                )}
+              </Alert>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <p className="text-muted mb-0">
+                  Select questions to import ({selectedQuestions.length} selected)
+                </p>
+                <Form.Check
+                  type="checkbox"
+                  label="Select All"
+                  checked={questionBankList.length > 0 && selectedQuestions.length === questionBankList.length}
+                  onChange={toggleSelectAllQuestions}
+                  className="fw-bold"
+                />
+              </div>
+              {questionBankList.map((question) => (
+                <Card
+                  key={question.id}
+                  className={`mb-3 ${selectedQuestions.includes(question.id) ? 'border-primary' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleQuestionSelection(question.id)}
+                >
+                  <Card.Body>
+                    <div className="d-flex align-items-start">
+                      <Form.Check
+                        type="checkbox"
+                        checked={selectedQuestions.includes(question.id)}
+                        onChange={() => {}}
+                        className="me-3 mt-1"
+                      />
+                      <div className="flex-grow-1">
+                        <h6 className="mb-2">{question.text}</h6>
+                        <div className="d-flex gap-3 text-muted small">
+                          <span>
+                            <strong>Difficulty:</strong> {question.difficulty}
+                          </span>
+                          <span>
+                            <strong>Weight:</strong> {question.weight}
+                          </span>
+                          <span>
+                            <strong>Options:</strong> {question.options_count}
+                          </span>
+                          {question.category_name && (
+                            <span>
+                              <strong>Category:</strong> {question.category_name}
+                            </span>
+                          )}
+                        </div>
+                        {question.tags && question.tags.length > 0 && (
+                          <div className="mt-2">
+                            {question.tags.map((tag, idx) => (
+                              <span key={idx} className="badge bg-secondary me-1">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowQuestionBankModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={importQuestionsFromBank}
+            disabled={selectedQuestions.length === 0}
+          >
+            Import {selectedQuestions.length > 0 && `(${selectedQuestions.length})`} Question{selectedQuestions.length !== 1 ? 's' : ''}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Layout>
   );
 }

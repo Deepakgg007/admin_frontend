@@ -8,8 +8,8 @@ import axios from 'axios';
 // export const API_BASE_URL = 'http://krishik-abiuasd.in:8000'; 
 //
 // interserver testing
-export const API_BASE_URL = 'https://krishik-abiuasd.in';  
-// export const API_BASE_URL = 'http://localhost:8000';
+// export const API_BASE_URL = 'https://krishik-abiuasd.in';  
+export const API_BASE_URL = 'http://localhost:8000';
 
 // export const API_BASE_URL = 'http://16.171.21.66';
 

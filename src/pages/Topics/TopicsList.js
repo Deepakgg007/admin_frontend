@@ -61,9 +61,7 @@ function TopicsList() {
         let nextUrl = `${API_BASE_URL}/api/topics/`;
 
         while (nextUrl) {
-          const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
-
-          const response = await axios.get(normalizedUrl, {
+          const response = await axios.get(nextUrl, {
             params: nextUrl === `${API_BASE_URL}/api/topics/` ? params : {},
             headers: { Authorization: `Bearer ${authToken}` },
           });
@@ -76,12 +74,7 @@ function TopicsList() {
           }
 
           // Check for next page
-          let nextUrlFromResponse = res?.next || null;
-          if (nextUrlFromResponse) {
-            nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
-          } else {
-            nextUrl = null;
-          }
+          nextUrl = res?.next || null;
         }
 
         // Client-side filtering by creator type
