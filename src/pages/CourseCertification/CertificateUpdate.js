@@ -67,7 +67,6 @@ function CertificateUpdate() {
 
         setBankQuestions(certData.bank_questions || []);
       } catch (err) {
-        console.error(err);
         Swal.fire("Error", "Failed to load data", "error");
       }
     };
@@ -173,7 +172,6 @@ function CertificateUpdate() {
       setQuestionBankQuestions(data);
     } catch (error) {
       Swal.fire("Error!", "Failed to load Question Bank.", "error");
-      console.error(error);
     } finally {
       setLoadingQuestionBank(false);
     }
@@ -185,6 +183,16 @@ function CertificateUpdate() {
         ? prev.filter(id => id !== questionId)
         : [...prev, questionId]
     );
+  };
+
+  const toggleSelectAllQuestions = () => {
+    if (selectedQuestionIds.length === questionBankQuestions.length) {
+      // If all are selected, deselect all
+      setSelectedQuestionIds([]);
+    } else {
+      // Select all questions
+      setSelectedQuestionIds(questionBankQuestions.map(q => q.id));
+    }
   };
 
   const importSelectedQuestions = async () => {
@@ -255,7 +263,8 @@ function CertificateUpdate() {
       return;
     }
 
-    if (form.questions.length === 0 && bankQuestions.length === 0) {
+    const totalQuestions = form.questions.length + bankQuestions.length;
+    if (totalQuestions === 0) {
       Swal.fire("Error", "Please add at least one question (manual or from Question Bank)", "error");
       setIsSubmitting(false);
       return;
@@ -305,7 +314,6 @@ function CertificateUpdate() {
 
       navigate("/Certificates/list-certificate");
     } catch (error) {
-      console.error("Update error:", error.response);
       const errorMessage =
         error.response?.data?.error ||
         error.response?.data?.message ||
@@ -450,10 +458,157 @@ function CertificateUpdate() {
                 </Card.Body>
               </Card>
 
-              {/* Questions Section */}
+              {/* Manual Questions Section */}
+              {form.questions.length > 0 && (
+                <Card className="mb-4">
+                  <Card.Header className="d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">Assessment Questions ({form.questions.length})</h5>
+                    <Button variant="primary" size="sm" onClick={addQuestion}>
+                      <Icon name="plus" /> Add Question
+                    </Button>
+                  </Card.Header>
+                  <Card.Body>
+                    {form.questions.map((question, qIndex) => (
+                      <Card key={question.id} className="mb-4 border">
+                        <Card.Header className="bg-light d-flex justify-content-between align-items-center">
+                          <h6 className="mb-0">Question {qIndex + 1}</h6>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => deleteQuestion(qIndex)}
+                          >
+                            <Icon name="trash" />
+                          </Button>
+                        </Card.Header>
+                        <Card.Body>
+                          <Row className="g-3">
+                            <Col md={12}>
+                              <Form.Group>
+                                <Form.Label>Question Text *</Form.Label>
+                                <Form.Control
+                                  as="textarea"
+                                  rows={2}
+                                  value={question.text}
+                                  onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
+                                  placeholder="Enter the question..."
+                                  required
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col md={3}>
+                              <Form.Group>
+                                <Form.Label>Order</Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={question.order}
+                                  onChange={(e) => updateQuestion(qIndex, 'order', e.target.value)}
+                                  min="0"
+                                  required
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col md={3}>
+                              <Form.Group>
+                                <Form.Label>Weight</Form.Label>
+                                <Form.Control
+                                  type="number"
+                                  value={question.weight}
+                                  onChange={(e) => updateQuestion(qIndex, 'weight', e.target.value)}
+                                  min="1"
+                                  required
+                                />
+                              </Form.Group>
+                            </Col>
+
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label>Settings</Form.Label>
+                                <div>
+                                  <Form.Check
+                                    type="checkbox"
+                                    label="Multiple Correct Answers"
+                                    checked={question.is_multiple_correct}
+                                    onChange={(e) => updateQuestion(qIndex, 'is_multiple_correct', e.target.checked)}
+                                    className="mb-2"
+                                  />
+                                  <Form.Check
+                                    type="checkbox"
+                                    label="Active Question"
+                                    checked={question.is_active}
+                                    onChange={(e) => updateQuestion(qIndex, 'is_active', e.target.checked)}
+                                  />
+                                </div>
+                              </Form.Group>
+                            </Col>
+
+                            {/* Options */}
+                            <Col md={12}>
+                              <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h6 className="mb-0">Answer Options</h6>
+                                <Button variant="outline-primary" size="sm" onClick={() => addOption(qIndex)}>
+                                  <Icon name="plus" /> Add Option
+                                </Button>
+                              </div>
+
+                              {question.options.map((option, oIndex) => (
+                                <Row key={option.id} className="g-2 align-items-center mb-2">
+                                  <Col md={1}>
+                                    <Form.Check
+                                      type={question.is_multiple_correct ? "checkbox" : "radio"}
+                                      name={`question-${qIndex}`}
+                                      checked={option.is_correct}
+                                      onChange={(e) => updateOption(qIndex, oIndex, 'is_correct', e.target.checked)}
+                                    />
+                                  </Col>
+                                  <Col md={9}>
+                                    <Form.Control
+                                      type="text"
+                                      value={option.text}
+                                      onChange={(e) => updateOption(qIndex, oIndex, 'text', e.target.value)}
+                                      placeholder="Enter option text..."
+                                      required
+                                    />
+                                  </Col>
+                                  <Col md={2}>
+                                    <Button
+                                      variant="outline-danger"
+                                      size="sm"
+                                      onClick={() => deleteOption(qIndex, oIndex)}
+                                      disabled={question.options.length <= 2}
+                                    >
+                                      <Icon name="trash" />
+                                    </Button>
+                                  </Col>
+                                </Row>
+                              ))}
+                              <div className="mt-2">
+                                <small className="text-muted">
+                                  {question.is_multiple_correct
+                                    ? "✓ Multiple correct answers allowed"
+                                    : "✓ Single correct answer only"}
+                                </small>
+                                <br />
+                                <small className="text-muted">
+                                  {question.options.filter(opt => opt.is_correct).length} correct answer(s) selected
+                                </small>
+                              </div>
+                            </Col>
+                          </Row>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* Question Bank Questions Section */}
               <Card>
                 <Card.Header className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">Assessment Questions (From Question Bank)</h5>
+                  <h5 className="mb-0">
+                    Questions from Question Bank ({bankQuestions.length})
+                  </h5>
                   <Button variant="primary" size="sm" onClick={openQuestionBankModal}>
                     <Icon name="archive" /> Import from Question Bank
                   </Button>
@@ -461,19 +616,19 @@ function CertificateUpdate() {
                 <Card.Body>
                   <Alert variant="info">
                     <Icon name="info-fill" className="me-2" />
-                    Questions are now managed in the <Link to="/QuestionBank/list-questions">Question Bank</Link>.
-                    Click "Import from Question Bank" to add AI-generated or manually created questions to this certificate.
+                    Questions imported from the <Link to="/QuestionBank/list-questions">Question Bank</Link> are managed separately.
+                    Click "Import from Question Bank" to add more questions.
                   </Alert>
                   {bankQuestions.length === 0 ? (
                     <Alert variant="warning" className="text-center">
-                      No questions imported yet. Click "Import from Question Bank" above to add questions.
+                      No questions imported from Question Bank yet.
                     </Alert>
                   ) : (
                     bankQuestions.map((bankQuestion, qIndex) => (
                       <Card key={bankQuestion.id} className="mb-4 border border-primary">
                         <Card.Header className="bg-light d-flex justify-content-between align-items-center">
                           <div>
-                            <h6 className="mb-0">Question {qIndex + 1}</h6>
+                            <h6 className="mb-0">Question {form.questions.length + qIndex + 1}</h6>
                             <small className="text-muted">From Question Bank</small>
                           </div>
                           <Button
@@ -542,6 +697,17 @@ function CertificateUpdate() {
                   )}
                 </Card.Body>
               </Card>
+
+              {/* Add Question Button for Manual Questions */}
+              {form.questions.length === 0 && (
+                <Card className="mb-4">
+                  <Card.Body className="text-center">
+                    <Button variant="outline-primary" onClick={addQuestion}>
+                      <Icon name="plus" className="me-2" /> Add Manual Question
+                    </Button>
+                  </Card.Body>
+                </Card>
+              )}
             </Col>
 
             <Col md={12} className="text-center mt-4">
@@ -589,6 +755,18 @@ function CertificateUpdate() {
                   Select questions to import. These questions are from the Question Bank for the selected course.
                 </small>
               </Alert>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <p className="text-muted mb-0">
+                  Select questions to import ({selectedQuestionIds.length} selected)
+                </p>
+                <Form.Check
+                  type="checkbox"
+                  label="Select All"
+                  checked={questionBankQuestions.length > 0 && selectedQuestionIds.length === questionBankQuestions.length}
+                  onChange={toggleSelectAllQuestions}
+                  className="fw-bold"
+                />
+              </div>
               {questionBankQuestions.map((question, index) => (
                 <Card key={question.id} className="mb-3">
                   <Card.Body>

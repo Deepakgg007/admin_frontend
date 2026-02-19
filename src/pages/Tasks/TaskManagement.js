@@ -40,24 +40,17 @@ const TaskManagement = () => {
         if (filterCourse) params.course = filterCourse;
         if (filterTopic) params.topic = filterTopic;
 
-        console.log('📌 Fetching tasks with params:', params);
-
         const response = await axios.get(`${API_BASE_URL}/api/tasks/`, {
           params,
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        console.log('📌 Tasks API Response:', response.data);
-
         const res = response.data;
         let data = res?.data || res?.results || [];
-
-        console.log('📌 Raw data from API:', data.length, 'tasks');
 
         // Client-side filtering by creator type
         if (creatorFilter !== 'all') {
           data = data.filter(task => task.creator_type === creatorFilter);
-          console.log('📌 After creator filter:', data.length, 'tasks');
         }
 
         // Client-side filtering by topic (in case API doesn't filter properly)
@@ -67,10 +60,7 @@ const TaskManagement = () => {
             const selectedTopicId = parseInt(filterTopic);
             return taskTopicId === selectedTopicId;
           });
-          console.log('📌 After topic filter:', data.length, 'tasks for topic', filterTopic);
         }
-
-        console.log('📌 Final tasks extracted:', data.length);
 
         setTasks(data);
       } catch (error) {
@@ -104,16 +94,12 @@ const TaskManagement = () => {
         return topicCourseId === courseId;
       });
       setFilteredTopics(topicsForCourse);
-      console.log(`Filtered ${topicsForCourse.length} topics for course ${filterCourse}:`, topicsForCourse);
 
       // Only reset topic filter if selected topic is NOT in the new course
       if (filterTopic) {
         const isTopicInCourse = topicsForCourse.some(t => t.id === parseInt(filterTopic));
         if (!isTopicInCourse) {
-          console.log(`Topic ${filterTopic} not found in course ${filterCourse}, resetting topic filter`);
           setFilterTopic('');
-        } else {
-          console.log(`Topic ${filterTopic} is valid for course ${filterCourse}, keeping selection`);
         }
       }
     } else {
@@ -138,7 +124,7 @@ const TaskManagement = () => {
       const courseData = response.data.results || response.data.data || response.data;
       setCourses(Array.isArray(courseData) ? courseData : []);
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      // Error fetching courses
     }
   };
 
@@ -157,9 +143,7 @@ const TaskManagement = () => {
       let nextUrl = `${API_BASE_URL}/api/topics/`;
 
       while (nextUrl) {
-        const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
-
-        const response = await axios.get(normalizedUrl, {
+        const response = await axios.get(nextUrl, {
           headers: getAuthHeaders()
         });
 
@@ -170,17 +154,12 @@ const TaskManagement = () => {
         }
 
         // Check for next page
-        let nextUrlFromResponse = response.data.next || null;
-        if (nextUrlFromResponse) {
-          nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
-        } else {
-          nextUrl = null;
-        }
+        nextUrl = response.data.next || null;
       }
 
       setAllTopics(allTopics);
     } catch (error) {
-      console.error('Error fetching all topics:', error);
+      // Error fetching all topics
     }
   };
 

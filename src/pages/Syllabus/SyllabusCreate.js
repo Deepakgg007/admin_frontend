@@ -22,7 +22,9 @@ function SyllabusCreate() {
   });
 
   const [courses, setCourses] = useState([]);
+  const [existingSyllabi, setExistingSyllabi] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   // Fetch courses for dropdown
   useEffect(() => {
@@ -50,9 +52,51 @@ function SyllabusCreate() {
     }));
   };
 
+  // Fetch existing syllabi when course changes to check for duplicates
+  useEffect(() => {
+    const fetchExistingSyllabi = async () => {
+      if (!form.course) {
+        setExistingSyllabi([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/syllabi/`, {
+          params: { course: form.course, per_page: 1000 },
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = res.data.data || res.data.results || [];
+        setExistingSyllabi(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchExistingSyllabi();
+  }, [form.course, authToken]);
+
+  const checkDuplicate = () => {
+    if (!form.course || !form.title.trim()) {
+      return false;
+    }
+    const duplicate = existingSyllabi.find(
+      (s) => s.course === parseInt(form.course) && s.title.toLowerCase() === form.title.toLowerCase().trim()
+    );
+    return !!duplicate;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    // Check for duplicate syllabus in the same course
+    if (checkDuplicate()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Duplicate Syllabus!",
+        text: "A syllabus with this title already exists in the selected course. Please use a different title.",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -159,7 +203,13 @@ function SyllabusCreate() {
                           onChange={handleInput}
                           placeholder="e.g., Introduction to React"
                           required
+                          isInvalid={checkDuplicate()}
                         />
+                        {checkDuplicate() && (
+                          <Form.Control.Feedback type="invalid" style={{display: 'block'}}>
+                            This syllabus title already exists in the selected course.
+                          </Form.Control.Feedback>
+                        )}
                       </Form.Group>
                     </Col>
 

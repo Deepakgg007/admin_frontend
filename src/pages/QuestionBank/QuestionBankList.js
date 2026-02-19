@@ -9,6 +9,34 @@ import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
 import { ChevronDown, ChevronUp } from "react-feather";
 
+/**
+ * Helper function to render text with code formatting
+ * Handles both inline code and multi-line code blocks
+ */
+const renderTextWithCode = (text) => {
+  if (!text) return '';
+
+  // First, process multi-line code blocks (triple backticks)
+  let processedText = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    // Escape HTML entities in code
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Return pre-formatted code block with line breaks preserved
+    return `<pre style="background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 8px 0;"><code>${escapedCode}</code></pre>`;
+  });
+
+  // Then process inline code (single backticks)
+  const inlineCodeStyle = 'font-family: monospace; color: #e11d48; background: #fef2f2; padding: 2px 6px; border-radius: 4px;';
+  processedText = processedText.replace(/`([^`]+)`/g, `<code style="${inlineCodeStyle}">$1</code>`);
+
+  // Convert remaining newlines to <br> for non-code text
+  processedText = processedText.replace(/\n/g, '<br />');
+
+  return { __html: processedText };
+};
+
 function QuestionBankList() {
   const [groupedQuestions, setGroupedQuestions] = useState({});
   const [categories, setCategories] = useState([]);
@@ -505,7 +533,8 @@ function QuestionBankList() {
                             </Col>
                             <Col md={7}>
                               <div className="mb-2">
-                                <strong>Q{index + 1}:</strong> {question.text}
+                                <strong>Q{index + 1}:</strong>{' '}
+                                <span dangerouslySetInnerHTML={renderTextWithCode(question.text)}></span>
                               </div>
                               <div className="d-flex gap-2 flex-wrap">
                                 {getDifficultyBadge(question.difficulty)}
@@ -652,11 +681,13 @@ function QuestionBankList() {
               <div className="border rounded p-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
                 {generatedQuestions.map((q, idx) => (
                   <div key={q.id || idx} className="mb-3 pb-3 border-bottom">
-                    <strong>Q{idx + 1}:</strong> {q.text}
+                    <strong>Q{idx + 1}:</strong>{' '}
+                    <span dangerouslySetInnerHTML={renderTextWithCode(q.text)}></span>
                     <div className="mt-2 ms-3">
                       {q.options?.map((opt, optIdx) => (
                         <div key={optIdx} className={opt.is_correct ? "text-success fw-bold" : ""}>
-                          {String.fromCharCode(65 + optIdx)}. {opt.text}
+                          {String.fromCharCode(65 + optIdx)}.{' '}
+                          <span dangerouslySetInnerHTML={renderTextWithCode(opt.text)}></span>
                           {opt.is_correct && " (Correct)"}
                         </div>
                       ))}

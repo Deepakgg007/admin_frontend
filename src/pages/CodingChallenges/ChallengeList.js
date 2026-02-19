@@ -17,6 +17,7 @@ function ChallengeList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [sortBy, setSortBy] = useState('-created_at'); // Default: recent first
   const [categories, setCategories] = useState([]);
 
   const authToken = localStorage.getItem('authToken');
@@ -29,6 +30,7 @@ function ChallengeList() {
       if (searchQuery) params.search = searchQuery;
       if (filterDifficulty) params.difficulty = filterDifficulty;
       if (filterCategory) params.category = filterCategory;
+      if (sortBy) params.ordering = sortBy;
 
       const response = await axios.get(`${API_BASE_URL}/api/challenges/`, {
         params,
@@ -45,7 +47,7 @@ function ChallengeList() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, filterDifficulty, filterCategory, authToken]);
+  }, [searchQuery, filterDifficulty, filterCategory, sortBy, authToken]);
 
   useEffect(() => {
     fetchChallenges();
@@ -118,6 +120,16 @@ function ChallengeList() {
       sortable: true,
     },
     {
+      name: 'Created',
+      selector: (row) => row.created_at,
+      sortable: true,
+      cell: (row) => {
+        const date = new Date(row.created_at);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      },
+      width: '120px',
+    },
+    {
       name: 'Max Score',
       selector: (row) => row.max_score,
       sortable: true,
@@ -169,7 +181,7 @@ function ChallengeList() {
           <Card.Body>
             {/* Filters */}
             <Row className="g-3 mb-3">
-              <Col md={4}>
+              <Col md={3}>
                 <Form.Control
                   type="text"
                   placeholder="Search by title, description, tags..."
@@ -177,7 +189,7 @@ function ChallengeList() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </Col>
-              <Col md={3}>
+              <Col md={2}>
                 <Form.Select value={filterDifficulty} onChange={(e) => setFilterDifficulty(e.target.value)}>
                   <option value="">All Difficulties</option>
                   <option value="EASY">Easy</option>
@@ -185,7 +197,7 @@ function ChallengeList() {
                   <option value="HARD">Hard</option>
                 </Form.Select>
               </Col>
-              <Col md={3}>
+              <Col md={2}>
                 <Form.Select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
                   <option value="">All Categories</option>
                   {categories.map((cat) => (
@@ -196,6 +208,18 @@ function ChallengeList() {
                 </Form.Select>
               </Col>
               <Col md={2}>
+                <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="-created_at">Recent First</option>
+                  <option value="created_at">Oldest First</option>
+                  <option value="title">Title (A-Z)</option>
+                  <option value="-title">Title (Z-A)</option>
+                  <option value="difficulty">Difficulty (Easy to Hard)</option>
+                  <option value="-difficulty">Difficulty (Hard to Easy)</option>
+                  <option value="category">Category (A-Z)</option>
+                  <option value="-max_score">Max Score (High to Low)</option>
+                </Form.Select>
+              </Col>
+              <Col md={3}>
                 <button className="btn btn-outline-light w-100" onClick={fetchChallenges}>
                   <RefreshCw size={16} className="me-2" /> Refresh
                 </button>

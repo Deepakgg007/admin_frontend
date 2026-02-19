@@ -65,8 +65,6 @@ function CertificateList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        console.log('Certificates API Response:', response.data);
-
         const res = response.data;
         const data = res?.data || res?.results || [];
         const total = res?.pagination?.total || res?.count || data.length;
@@ -172,8 +170,22 @@ function CertificateList() {
     },
     {
       name: "Questions",
-      selector: (row) => row.total_questions || 0,
+      selector: (row) => {
+        const manualCount = row.questions?.length || 0;
+        const bankCount = row.bank_questions?.length || 0;
+        const total = manualCount + bankCount;
+        return total > 0 ? total : (row.total_questions || 0);
+      },
       sortable: true,
+      cell: (row) => {
+        const manualCount = row.questions?.length || 0;
+        const bankCount = row.bank_questions?.length || 0;
+        const total = manualCount + bankCount;
+        const displayTotal = total > 0 ? total : (row.total_questions || 0);
+        return manualCount > 0 && bankCount > 0
+          ? `${displayTotal} (${manualCount} manual + ${bankCount} bank)`
+          : displayTotal;
+      },
     },
     {
       name: "Status",

@@ -14,6 +14,7 @@ const TaskForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [courses, setCourses] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [existingTasks, setExistingTasks] = useState([]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -37,8 +38,10 @@ const TaskForm = () => {
   useEffect(() => {
     if (formData.course) {
       fetchTopics(); // Fetch topics by course
+      fetchExistingTasks(); // Fetch existing tasks for duplicate check
     } else {
       setTopics([]);
+      setExistingTasks([]);
       setFormData(prev => ({ ...prev, topic: '' }));
     }
   }, [formData.course]);
@@ -61,7 +64,6 @@ const TaskForm = () => {
         await fetchTopics(task.course); // Fetch topics by course
       }
     } catch (error) {
-      console.error('Error fetching task:', error);
       Swal.fire('Error', 'Failed to load task details', 'error');
     } finally {
       setLoading(false);
@@ -76,7 +78,7 @@ const TaskForm = () => {
       const data = response.data.results || response.data.data || response.data;
       setCourses(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      // Error fetching courses
     }
   };
 
@@ -95,10 +97,7 @@ const TaskForm = () => {
 
       // Handle pagination - fetch all pages for this course
       while (nextUrl) {
-        // Normalize the next URL to ensure it uses HTTPS (fixes CORS issues)
-        const normalizedUrl = nextUrl.replace(/^http:/, 'https:');
-
-        const response = await axios.get(normalizedUrl, {
+        const response = await axios.get(nextUrl, {
           headers: getAuthHeaders()
         });
 
@@ -109,20 +108,42 @@ const TaskForm = () => {
         }
 
         // Check if there's a next page
-        let nextUrlFromResponse = response.data.next || null;
-
-        // Normalize next URL to HTTPS if it exists
-        if (nextUrlFromResponse) {
-          nextUrl = nextUrlFromResponse.replace(/^http:/, 'https:');
-        } else {
-          nextUrl = null;
-        }
+        nextUrl = response.data.next || null;
       }
 
       setTopics(allTopics);
     } catch (error) {
-      console.error('Error fetching topics:', error);
       setTopics([]);
+    }
+  };
+
+  const fetchExistingTasks = async () => {
+    try {
+      if (!formData.course) {
+        setExistingTasks([]);
+        return;
+      }
+
+      let allTasks = [];
+      let nextUrl = `${API_BASE_URL}/api/tasks/?course=${formData.course}`;
+
+      while (nextUrl) {
+        const response = await axios.get(nextUrl, {
+          headers: getAuthHeaders()
+        });
+
+        const pageResults = response.data.results || response.data.data || response.data;
+
+        if (Array.isArray(pageResults)) {
+          allTasks = [...allTasks, ...pageResults];
+        }
+
+        nextUrl = response.data.next || null;
+      }
+
+      setExistingTasks(allTasks);
+    } catch (error) {
+      setExistingTasks([]);
     }
   };
 
@@ -143,11 +164,34 @@ const TaskForm = () => {
     }));
   };
 
+  const checkDuplicate = () => {
+    if (!formData.course || !formData.title.trim()) {
+      return false;
+    }
+    const duplicate = existingTasks.find(
+      (t) => t.course === parseInt(formData.course) &&
+             t.title.toLowerCase() === formData.title.toLowerCase().trim() &&
+             t.id !== parseInt(taskId || 0)
+    );
+    return !!duplicate;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.title.trim()) return Swal.fire('Error', 'Title is required', 'error');
     if (!formData.course) return Swal.fire('Error', 'Course is required', 'error');
+
+    // Check for duplicate task in the same course
+    if (checkDuplicate()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Duplicate Task!",
+        text: "A task with this title already exists in the selected course. Please use a different title.",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -168,7 +212,6 @@ const TaskForm = () => {
 
       navigate('/Tasks/task-management');
     } catch (error) {
-      console.error('Error saving task:', error);
       Swal.fire('Error', error.response?.data?.message || 'Failed to save task', 'error');
     } finally {
       setSubmitting(false);
@@ -258,7 +301,13 @@ const TaskForm = () => {
                       onChange={handleInputChange}
                       placeholder="Enter task title"
                       required
+                      isInvalid={checkDuplicate()}
                     />
+                    {checkDuplicate() && (
+                      <Form.Control.Feedback type="invalid" style={{display: 'block'}}>
+                        This task title already exists in the selected course.
+                      </Form.Control.Feedback>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={4}>

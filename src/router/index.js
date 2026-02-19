@@ -84,7 +84,9 @@ import AISettingsList from "../pages/AISettings/AISettingsList";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import CourseCompletionReport from "../pages/CourseCompletion/CourseCompletionReport";
 import StudentReport from "../pages/Reports/StudentReport";
+import StudentDashboard from "../pages/Reports/StudentDashboard";
 import StudentManagement from "../pages/Students/StudentManagement";
+import PendingOtherCollegeStudents from "../pages/Students/PendingOtherCollegeStudents";
 
 function Router() {
   return (
@@ -207,10 +209,12 @@ function Router() {
 
         <Route path="Reports">
           <Route path="students" element={<AdminRoute> <StudentReport /> </AdminRoute>} />
+          <Route path="StudentDashboard" element={<AdminRoute> <StudentDashboard /> </AdminRoute>} />
         </Route>
 
         <Route path="Students">
           <Route path="manage" element={<AdminRoute> <StudentManagement /> </AdminRoute>} />
+          <Route path="other-college-approvals" element={<AdminRoute> <PendingOtherCollegeStudents /> </AdminRoute>} />
         </Route>
 
         <Route path="auths">

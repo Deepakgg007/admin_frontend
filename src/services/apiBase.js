@@ -1,17 +1,9 @@
 import axios from 'axios';
+// export const API_BASE_URL = 'https://krishik-abiuasd.in';
+export const API_BASE_URL = 'https://shobhaconsultancy.in';
 
-/**
- * API Base Configuration
- * Change the base URL here to update it across the entire application
- */
-// local testing
-// export const API_BASE_URL = 'http://krishik-abiuasd.in:8000'; 
-//
-// interserver testing
-// export const API_BASE_URL = 'https://krishik-abiuasd.in';  
-export const API_BASE_URL = 'http://localhost:8000';
+// export const API_BASE_URL = 'http://localhost:8000';
 
-// export const API_BASE_URL = 'http://16.171.21.66';
 
 // Create axios instance with base configuration
 const apiBase = axios.create({
@@ -46,10 +38,6 @@ apiBase.interceptors.response.use(
   }
 );
 
-/**
- * Helper function to normalize URLs for CORS compatibility
- * Converts HTTP to HTTPS to ensure consistent protocol
- */
 export const normalizeUrl = (url) => {
   if (!url) return url;
   return url.replace(/^http:/, 'https:');

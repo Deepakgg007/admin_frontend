@@ -239,12 +239,18 @@ function Menu() {
       <MenuItem>
         <MenuItemLink icon="users" text="Student Report" to="/Reports/students" />
       </MenuItem>
+      <MenuItem>
+        <MenuItemLink icon="user" text="Student Dashboard" to="/Reports/StudentDashboard" />
+      </MenuItem>
       
       <MenuHeading text="StudentManagement" />
       <MenuItem>
         <MenuItemLink icon="file-text" text="Student Management" to="/Students/manage" />
       </MenuItem>
-      
+      <MenuItem>
+        <MenuItemLink icon="user-follow" text="Other College Approvals" to="/Students/other-college-approvals" />
+      </MenuItem>
+
      
     </MenuList>
   );

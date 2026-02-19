@@ -11,6 +11,34 @@ import { API_BASE_URL } from "../../services/apiBase";
 import CertificateTemplate from "./CertificateTemplate";
 import { downloadCertificateAsPDF, printCertificate } from "./CertificateDownloadHelper";
 
+/**
+ * Helper function to render text with code formatting
+ * Handles both inline code and multi-line code blocks
+ */
+const renderTextWithCode = (text) => {
+  if (!text) return '';
+
+  // First, process multi-line code blocks (triple backticks)
+  let processedText = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    // Escape HTML entities in code
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Return pre-formatted code block with line breaks preserved
+    return `<pre style="background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 8px 0;"><code>${escapedCode}</code></pre>`;
+  });
+
+  // Then process inline code (single backticks)
+  const inlineCodeStyle = 'font-family: monospace; color: #e11d48; background: #fef2f2; padding: 2px 6px; border-radius: 4px;';
+  processedText = processedText.replace(/`([^`]+)`/g, `<code style="${inlineCodeStyle}">$1</code>`);
+
+  // Convert remaining newlines to <br> for non-code text
+  processedText = processedText.replace(/\n/g, '<br />');
+
+  return { __html: processedText };
+};
+
 function CertificateView() {
   const { id } = useParams();
   const [certificate, setCertificate] = useState(null);
@@ -232,7 +260,10 @@ function CertificateView() {
                         </div>
                       </Card.Header>
                       <Card.Body>
-                        <p className="fw-bold mb-3">{question.text}</p>
+                        <p
+                          className="fw-bold mb-3"
+                          dangerouslySetInnerHTML={renderTextWithCode(question.text)}
+                        ></p>
 
                         <h6 className="mb-2">Options:</h6>
                         <Table responsive striped>
@@ -252,7 +283,7 @@ function CertificateView() {
                                     <Badge bg="secondary">✗</Badge>
                                   )}
                                 </td>
-                                <td>{option.text}</td>
+                                <td dangerouslySetInnerHTML={renderTextWithCode(option.text)}></td>
                               </tr>
                             ))}
                           </tbody>

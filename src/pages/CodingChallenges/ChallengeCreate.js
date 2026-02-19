@@ -2,12 +2,51 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Card, Form, Button, Spinner, Row, Col, Tab, Tabs } from 'react-bootstrap';
+import { Card, Form, Button, Spinner, Row, Col, Tab, Tabs, Modal, Alert, Badge } from 'react-bootstrap';
 
 import Layout from '../../layout/default';
 import Block from '../../components/Block/Block';
 import { Icon } from '../../components';
 import { API_BASE_URL } from '../../services/apiBase';
+
+// Utility function to strip HTML tags while preserving formatting
+const stripHtmlTags = (html) => {
+  if (!html) return '';
+
+  let text = html;
+
+  // Convert HTML entities to their symbols
+  text = text
+    .replace(/&le;/g, '≤')
+    .replace(/&ge;/g, '≥')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&times;/g, '×')
+    .replace(/&plusmn;/g, '±')
+    .replace(/&ne;/g, '≠')
+    .replace(/&deg;/g, '°')
+    .replace(/&sup2;/g, '²')
+    .replace(/&sup3;/g, '³')
+    // Preserve <li> items as bullet points
+    .replace(/<li[^>]*>/gi, '\n• ')
+    // Preserve <ol> numbered list items
+    .replace(/<\/ol>/gi, '\n')
+    // Handle list item closing
+    .replace(/<\/li>/gi, '\n')
+    // Convert <br> and <br/> to newlines
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Remove remaining HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Remove excessive newlines but preserve list structure
+    .replace(/\n{3,}/g, '\n\n')
+    // Clean up bullet points
+    .replace(/[•\s]+\n[•\s]+/g, '• ')
+    .trim();
+
+  return text;
+};
 
 function ChallengeCreate() {
   const { slug } = useParams(); // Get slug for edit mode
@@ -15,6 +54,22 @@ function ChallengeCreate() {
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [categories, setCategories] = useState([]);
+
+  // AI Generation States
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiProviderStatus, setAiProviderStatus] = useState(null);
+  const [aiFormData, setAiFormData] = useState({
+    topic: '',
+    category: '',
+    difficulty: 'MEDIUM',
+    num_challenges: 1,
+    additional_context: '',
+    check_duplicates: true,
+    force_save: false,
+  });
+  const [aiResults, setAiResults] = useState(null);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,6 +111,14 @@ function ChallengeCreate() {
       })
       .then((res) => setCategories(res.data.categories || []))
       .catch((err) => console.error(err));
+
+    // Fetch AI provider status
+    axios
+      .get(`${API_BASE_URL}/api/challenges/ai-provider-status/`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      .then((res) => setAiProviderStatus(res.data))
+      .catch((err) => console.error(err));
   }, [authToken]);
 
   // Load existing challenge data if in edit mode
@@ -74,15 +137,15 @@ function ChallengeCreate() {
           // Set form data
           setFormData({
             title: challenge.title || '',
-            description: challenge.description || '',
-            input_format: challenge.input_format || '',
-            output_format: challenge.output_format || '',
-            constraints: challenge.constraints || '',
-            explanation: challenge.explanation || '',
-            sample_input: challenge.sample_input || '',
-            sample_output: challenge.sample_output || '',
-            time_complexity: challenge.time_complexity || '',
-            space_complexity: challenge.space_complexity || '',
+            description: stripHtmlTags(challenge.description) || '',
+            input_format: stripHtmlTags(challenge.input_format) || '',
+            output_format: stripHtmlTags(challenge.output_format) || '',
+            constraints: stripHtmlTags(challenge.constraints) || '',
+            explanation: stripHtmlTags(challenge.explanation) || '',
+            sample_input: stripHtmlTags(challenge.sample_input) || '',
+            sample_output: stripHtmlTags(challenge.sample_output) || '',
+            time_complexity: stripHtmlTags(challenge.time_complexity) || '',
+            space_complexity: stripHtmlTags(challenge.space_complexity) || '',
             difficulty: challenge.difficulty || 'MEDIUM',
             max_score: challenge.max_score || 100,
             category: challenge.category || 'implementation',
@@ -152,6 +215,211 @@ function ChallengeCreate() {
   // Starter Code Functions
   const updateStarterCode = (language, code) => {
     setStarterCodes((prev) => ({ ...prev, [language]: { ...prev[language], code } }));
+  };
+
+  // AI Generation Functions
+  const handleOpenAIModal = () => {
+    setAiFormData({
+      topic: '',
+      category: '',
+      difficulty: formData.difficulty || 'MEDIUM',
+      num_challenges: 1,
+      additional_context: '',
+      check_duplicates: true,
+      force_save: false,
+    });
+    setAiResults(null);
+    setShowAIModal(true);
+  };
+
+  const handleCloseAIModal = () => {
+    setShowAIModal(false);
+    setAiResults(null);
+  };
+
+  const handleAIFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setAiFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiFormData.category) {
+      Swal.fire('Error', 'Please select a category for the coding challenges.', 'error');
+      return;
+    }
+
+    // Use category label as topic if not provided
+    const selectedCategory = categories.find(cat => cat.value === aiFormData.category);
+    const topicToSend = aiFormData.topic || selectedCategory?.label || aiFormData.category;
+
+    setAiGenerating(true);
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/challenges/generate-with-ai/`,
+        { ...aiFormData, topic: topicToSend },
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+          timeout: 180000 // 3 minute timeout
+        }
+      );
+
+      setAiResults(response.data);
+
+      // If challenges were created, show success and navigate
+      if (response.data.created > 0) {
+        Swal.fire({
+          icon: 'success',
+          title: 'AI Generation Complete!',
+          html: `Successfully generated ${response.data.created} challenge(s)!`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        setTimeout(() => navigate('/CodingChallenges/list-challenge'), 2100);
+      }
+    } catch (error) {
+      console.error('AI Generation Error:', error);
+      console.error('Error response:', error.response?.data);
+
+      let errorMsg = error.response?.data?.error || 'Failed to generate challenges with AI.';
+      let errorDetails = '';
+
+      // Check if challenges were actually generated before the error
+      if (error.response?.data?.challenges && Array.isArray(error.response.data.challenges)) {
+        const challenges = error.response.data.challenges;
+        errorDetails = `\n\n${challenges.length} challenge(s) generated:\n` +
+          challenges.map((c, i) => `${i + 1}. ${c.title || 'Untitled'}`).join('\n');
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Generation Issue',
+        text: errorMsg + errorDetails,
+      });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleCheckDuplicates = async () => {
+    if (!formData.title.trim()) {
+      Swal.fire('Error', 'Please enter a title first.', 'warning');
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/challenges/check-duplicates/`,
+        {
+          title: formData.title,
+          description: formData.description || '',
+          test_cases: testCases.map(tc => ({
+            input_data: tc.input_data,
+            expected_output: tc.expected_output,
+          })),
+          exclude_id: isEditMode ? null : undefined, // We'd need the challenge ID for edit mode
+        },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      
+
+      if (response.data.is_duplicate) {
+        const duplicates = response.data.duplicates;
+        const duplicateList = duplicates
+          .map(d => `- <strong>${d.challenge.title}</strong> (${d.challenge.difficulty}, ${d.challenge.category})<br/>Reason: ${d.reason}`)
+          .join('<br/><br/>');
+
+        Swal.fire({
+          icon: 'warning',
+          title: 'Potential Duplicates Found!',
+          html: `<div style="text-align: left; font-size: 14px;">${duplicateList}</div>`,
+          confirmButtonText: 'I Understand',
+        });
+      } else {
+        Swal.fire({
+          icon: 'success',
+          title: 'No Duplicates Found',
+          text: 'This challenge appears to be unique.',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'Failed to check for duplicates.', 'error');
+    }
+  };
+
+  const loadChallengeToForm = (challengeSlug) => {
+    axios
+      .get(`${API_BASE_URL}/api/challenges/${challengeSlug}/`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      .then((res) => {
+        const challenge = res.data;
+
+        setFormData({
+          title: challenge.title || '',
+          description: stripHtmlTags(challenge.description) || '',
+          input_format: stripHtmlTags(challenge.input_format) || '',
+          output_format: stripHtmlTags(challenge.output_format) || '',
+          constraints: stripHtmlTags(challenge.constraints) || '',
+          explanation: stripHtmlTags(challenge.explanation) || '',
+          sample_input: stripHtmlTags(challenge.sample_input) || '',
+          sample_output: stripHtmlTags(challenge.sample_output) || '',
+          time_complexity: stripHtmlTags(challenge.time_complexity) || '',
+          space_complexity: stripHtmlTags(challenge.space_complexity) || '',
+          difficulty: challenge.difficulty || 'MEDIUM',
+          max_score: challenge.max_score || 100,
+          category: challenge.category || 'implementation',
+          tags: challenge.tags || '',
+          time_limit_seconds: challenge.time_limit_seconds || 10,
+          memory_limit_mb: challenge.memory_limit_mb || 256,
+        });
+
+        if (challenge.test_cases && challenge.test_cases.length > 0) {
+          setTestCases(
+            challenge.test_cases.map((tc) => ({
+              id: tc.id,
+              input_data: tc.input_data,
+              expected_output: tc.expected_output,
+              is_sample: tc.is_sample,
+              hidden: tc.hidden,
+              score_weight: tc.score_weight || 1,
+            }))
+          );
+        }
+
+        if (challenge.starter_codes && challenge.starter_codes.length > 0) {
+          const codes = {
+            python: { id: null, code: '' },
+            java: { id: null, code: '' },
+            c_cpp: { id: null, code: '' },
+            c: { id: null, code: '' },
+            javascript: { id: null, code: '' },
+          };
+          challenge.starter_codes.forEach((sc) => {
+            codes[sc.language] = { id: sc.id, code: sc.code || '' };
+          });
+          setStarterCodes(codes);
+        }
+
+        handleCloseAIModal();
+        Swal.fire({
+          icon: 'success',
+          title: 'Challenge Loaded',
+          text: 'The AI-generated challenge has been loaded into the form.',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      })
+      .catch((err) => {
+        console.error(err);
+        Swal.fire('Error', 'Failed to load the challenge.', 'error');
+      });
   };
 
   const handleSubmit = async (e) => {
@@ -258,9 +526,18 @@ function ChallengeCreate() {
             </nav>
           </Block.HeadContent>
           <Block.HeadContent>
-            <Link to="/CodingChallenges/list-challenge" className="btn btn-outline-light">
-              <Icon name="arrow-left" /> Back
-            </Link>
+            <ul className="d-flex gap-2">
+              <li>
+                <Button variant="primary" onClick={handleOpenAIModal}>
+                  <Icon name="sparkling" /> Generate with AI
+                </Button>
+              </li>
+              <li>
+                <Link to="/CodingChallenges/list-challenge" className="btn btn-outline-light">
+                  <Icon name="arrow-left" /> Back
+                </Link>
+              </li>
+            </ul>
           </Block.HeadContent>
         </Block.HeadBetween>
       </Block.Head>
@@ -644,6 +921,13 @@ function ChallengeCreate() {
                   )}
                 </Button>
                 <Button
+                  variant="outline-info"
+                  onClick={handleCheckDuplicates}
+                  disabled={loading}
+                >
+                  <Icon name="refresh" /> Check Duplicates
+                </Button>
+                <Button
                   variant="outline-light"
                   onClick={() => navigate('/CodingChallenges/list-challenge')}
                   disabled={loading}
@@ -655,6 +939,182 @@ function ChallengeCreate() {
           </Card>
         </Form>
       </Block>
+
+      {/* AI Generation Modal */}
+      <Modal show={showAIModal} onHide={handleCloseAIModal} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Icon name="sparkling" className="text-primary me-2" />
+            Generate Coding Challenge with AI
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {!aiProviderStatus?.has_provider && (
+            <Alert variant="warning">
+              <Icon name="alert-circle" /> No AI provider configured. Please configure an AI
+              provider in <Link to="/AISettings/list">AI Settings</Link> first.
+            </Alert>
+          )}
+
+          {aiResults && aiResults.duplicates_found > 0 && (
+            <Alert variant="warning">
+              <strong>Duplicates Found:</strong> {aiResults.duplicates_found} challenge(s) were
+              skipped because similar challenges already exist.
+            </Alert>
+          )}
+
+          {aiResults && aiResults.created > 0 && (
+            <Alert variant="success">
+              <strong>Success!</strong> {aiResults.created} challenge(s) were created.
+            </Alert>
+          )}
+
+          {aiResults && aiResults.skipped > 0 && (
+            <Alert variant="info">
+              <strong>Skipped:</strong> {aiResults.skipped} challenge(s) had validation errors.
+            </Alert>
+          )}
+
+          {aiResults && aiResults.duplicate_challenges && aiResults.duplicate_challenges.length > 0 && (
+            <div className="mb-3">
+              <h6>Duplicate Challenges Found:</h6>
+              {aiResults.duplicate_challenges.map((dup, idx) => (
+                <Card key={idx} className="mb-2">
+                  <Card.Body>
+                    <strong>{dup.title}</strong>
+                    <br />
+                    <small className="text-muted">
+                      Similar challenges: {dup.duplicates.map((d, i) => (
+                        <span key={i}>
+                          <Badge bg="secondary" className="me-1">
+                            {d.challenge.title}
+                          </Badge>
+                          {d.similarity && `(${d.similarity}% match)`}
+                        </span>
+                      ))}
+                    </small>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <Form>
+            <Row className="g-3">
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Category <span className="text-danger">*</span></Form.Label>
+                  <Form.Select
+                    name="category"
+                    value={aiFormData.category}
+                    onChange={handleAIFormChange}
+                    disabled={aiGenerating}
+                    required
+                  >
+                    <option value="">Select a category...</option>
+                    {categories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="text-muted">
+                    Select a category to generate a relevant coding challenge
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Difficulty</Form.Label>
+                  <Form.Select
+                    name="difficulty"
+                    value={aiFormData.difficulty}
+                    onChange={handleAIFormChange}
+                    disabled={aiGenerating}
+                  >
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Topic (Optional)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="topic"
+                    value={aiFormData.topic}
+                    onChange={handleAIFormChange}
+                    placeholder="e.g., Two Sum problem, Binary Tree Traversal, etc."
+                    disabled={aiGenerating}
+                  />
+                  <Form.Text className="text-muted">
+                    Leave empty to auto-generate based on category
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+
+              <Col md={12}>
+                <Form.Group>
+                  <Form.Label>Additional Context (Optional)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="additional_context"
+                    value={aiFormData.additional_context}
+                    onChange={handleAIFormChange}
+                    placeholder="e.g., Focus on hash map solution"
+                    disabled={aiGenerating}
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Check
+                  type="checkbox"
+                  name="check_duplicates"
+                  label="Check for duplicates"
+                  checked={aiFormData.check_duplicates}
+                  onChange={handleAIFormChange}
+                  disabled={aiGenerating}
+                />
+                <Form.Check
+                  type="checkbox"
+                  name="force_save"
+                  label="Force save (even if duplicates found)"
+                  checked={aiFormData.force_save}
+                  onChange={handleAIFormChange}
+                  disabled={aiGenerating}
+                  className="mt-2"
+                />
+              </Col>
+            </Row>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseAIModal} disabled={aiGenerating}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleAIGenerate}
+            disabled={aiGenerating || !aiProviderStatus?.has_provider}
+          >
+            {aiGenerating ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Icon name="sparkling" /> Generate Challenge
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Layout>
   );
 }

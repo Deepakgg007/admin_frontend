@@ -22,6 +22,7 @@ function TopicCreate() {
   });
 
   const [courses, setCourses] = useState([]);
+  const [existingTopics, setExistingTopics] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch courses for dropdown
@@ -50,9 +51,51 @@ function TopicCreate() {
     }));
   };
 
+  // Fetch existing topics when course changes to check for duplicates
+  useEffect(() => {
+    const fetchExistingTopics = async () => {
+      if (!form.course) {
+        setExistingTopics([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/topics/`, {
+          params: { course: form.course, per_page: 1000 },
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = res.data.data || res.data.results || [];
+        setExistingTopics(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchExistingTopics();
+  }, [form.course, authToken]);
+
+  const checkDuplicate = () => {
+    if (!form.course || !form.title.trim()) {
+      return false;
+    }
+    const duplicate = existingTopics.find(
+      (t) => t.course === parseInt(form.course) && t.title.toLowerCase() === form.title.toLowerCase().trim()
+    );
+    return !!duplicate;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    // Check for duplicate topic in the same course
+    if (checkDuplicate()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Duplicate Topic!",
+        text: "A topic with this title already exists in the selected course. Please use a different title.",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -159,7 +202,13 @@ function TopicCreate() {
                           onChange={handleInput}
                           placeholder="e.g., Introduction to Components"
                           required
+                          isInvalid={checkDuplicate()}
                         />
+                        {checkDuplicate() && (
+                          <Form.Control.Feedback type="invalid" style={{display: 'block'}}>
+                            This topic title already exists in the selected course.
+                          </Form.Control.Feedback>
+                        )}
                       </Form.Group>
                     </Col>
 

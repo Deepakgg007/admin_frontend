@@ -2,13 +2,15 @@ import React from 'react';
 import './CertificateTemplate.css';
 
 /**
- * CertificateTemplate Component - Frontend Edition
- * Displays a professional certificate for download with:
+ * CertificateTemplate Component - Traditional Ornate Edition
+ * Displays a professional certificate with:
  * - Top Left: Z1 Logo
  * - Top Right: College Logo (dynamic)
  * - Bottom Left: Z1 Signature
  * - Bottom Right: College Signature (dynamic)
  * - Center: Certificate details (student name, course, date, score, etc.)
+ * - Gold border with decorative corners
+ * - Traditional certificate design
  *
  * This component is optimized for html2canvas PDF generation
  */
@@ -27,12 +29,19 @@ const CertificateTemplate = React.forwardRef(({
   return (
     <div ref={ref} className="certificate-container">
       <div className="certificate-wrapper">
-        {/* Certificate Border */}
-        <div className="certificate-border">
+        {/* Decorative border frame */}
+        <div className="certificate-border-frame"></div>
 
+        {/* Decorative corner pieces */}
+        <div className="corner-piece corner-tl"></div>
+        <div className="corner-piece corner-tr"></div>
+        <div className="corner-piece corner-bl"></div>
+        <div className="corner-piece corner-br"></div>
+
+        <div className="certificate-border">
           {/* Header Section with Logos */}
           <div className="certificate-header">
-            {/* Top Left - Z1 Logo */}
+            {/* Z1 Logo (Left) */}
             <div className="top-left-section">
               <div className="logo-wrapper z1-logo-wrapper">
                 <img
@@ -44,18 +53,10 @@ const CertificateTemplate = React.forwardRef(({
               </div>
             </div>
 
-            {/* Center - Certificate Title */}
-            <div className="title-section">
-              <div className="certificate-title">
-                CERTIFICATE OF COMPLETION
-              </div>
-              <div className="decorative-line"></div>
-              <div className="certificate-subtitle">
-                This is to certify that
-              </div>
-            </div>
+            {/* Spacer */}
+            <div className="header-spacer"></div>
 
-            {/* Top Right - College Logo */}
+            {/* College Logo (Right) */}
             <div className="top-right-section">
               <div className="logo-wrapper college-logo-wrapper">
                 {collegeLogo ? (
@@ -70,93 +71,78 @@ const CertificateTemplate = React.forwardRef(({
             </div>
           </div>
 
-          {/* Main Content Section */}
-          <div className="certificate-body">
+          {/* Main Content */}
+          <div className="certificate-content">
+            {/* Main Title */}
+            <div className="certificate-title-section">
+              <h1 className="certificate-title">Certificate of Appreciation</h1>
+              <div className="decorative-line"></div>
+              <p className="certificate-subtitle">This Certificate is Proudly Presented to</p>
+            </div>
+
             {/* Student Name */}
             <div className="student-name-section">
-              <h1 className="student-name">{studentName}</h1>
-              <div className="underline"></div>
+              <h2 className="student-name-ornate">{studentName}</h2>
             </div>
 
-            {/* Certificate Text */}
-            <div className="certificate-text">
-              <p className="has-completed">
-                has successfully completed the course
-              </p>
-            </div>
+            {/* Achievement Text */}
+            <p className="achievement-text">For Successfully Completing the Course</p>
 
             {/* Course Name */}
-            <div className="course-section">
-              <h2 className="course-name">{courseName}</h2>
-              <div className="underline course-underline"></div>
+            <div className="course-section-ornate">
+              <h3 className="course-name-ornate">{courseName}</h3>
             </div>
+
+            {/* College Name */}
+            <p className="college-name-text">From {collegeName}</p>
+
+            <div className="divider-line"></div>
 
             {/* Details Section */}
-            <div className="details-section">
-              <div className="details-grid">
-                <div className="detail-item">
-                  <span className="detail-label">Institution:</span>
-                  <span className="detail-value">{collegeName}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Date of Completion:</span>
-                  <span className="detail-value">{completionDate}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Score:</span>
-                  <span className="detail-value">{score}% (Passing: {passingScore}%)</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Certificate No:</span>
-                  <span className="detail-value">{certificateNumber}</span>
-                </div>
+            <div className="details-section-ornate">
+              <p className="completion-date">
+                Presented this {completionDate}
+              </p>
+              <p className="certificate-number">
+                Certificate No: <span className="cert-number">CERT-{certificateNumber}</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Signature Section */}
+          <div className="signature-section-ornate">
+            {/* Left Signature - Z1 Admin */}
+            <div className="signature-area-ornate left-signature">
+              <div className="signature-image-wrapper">
+                <img
+                  src="/z1-sign.png"
+                  alt="Z1 Signature"
+                  className="signature-img"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
               </div>
+              <div className="signature-line-ornate"></div>
+              <p className="signature-name">Z1 Administrator</p>
+              <p className="signature-title-ornate">Authorized by Z1</p>
             </div>
 
-            {/* Signature Section - Bottom Left and Right */}
-            <div className="signature-section">
-              {/* Bottom Left - Z1 Signature */}
-              <div className="signature-area left-signature">
-                <div className="signature-image-wrapper">
+            {/* Right Signature - College Principal */}
+            <div className="signature-area-ornate right-signature">
+              <div className="signature-image-wrapper">
+                {collegeSignature ? (
                   <img
-                    src="/z1-sign.png"
-                    alt="Z1 Signature"
-                    className="college-signature-image"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      // Show placeholder if image fails to load
-                      const placeholder = document.createElement('div');
-                      placeholder.className = 'z1-signature-placeholder';
-                      placeholder.innerHTML = '<p className="signature-placeholder-text">Z1 Signature</p>';
-                      e.target.parentNode.appendChild(placeholder);
-                    }}
+                    src={collegeSignature}
+                    alt={`${collegeName} Signature`}
+                    className="signature-img"
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
-                </div>
-                <div className="signature-line"></div>
-                <p className="signature-label">Z1 Admin</p>
-                <p className="signature-title">Authorized By</p>
+                ) : (
+                  <div className="signature-placeholder-ornate"></div>
+                )}
               </div>
-
-              {/* Bottom Right - College Signature */}
-              <div className="signature-area right-signature">
-                <div className="signature-image-wrapper">
-                  {collegeSignature ? (
-                    <img
-                      src={collegeSignature}
-                      alt={`${collegeName} Signature`}
-                      className="college-signature-image"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="signature-placeholder">
-                      <p className="signature-placeholder-text">College Signature</p>
-                    </div>
-                  )}
-                </div>
-                <div className="signature-line"></div>
-                <p className="signature-label">{principalName}</p>
-                <p className="signature-title">Principal / Director</p>
-              </div>
+              <div className="signature-line-ornate"></div>
+              <p className="signature-name">{collegeName}</p>
+              <p className="signature-title-ornate">Principal / Director</p>
             </div>
           </div>
         </div>

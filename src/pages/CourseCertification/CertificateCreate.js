@@ -54,21 +54,15 @@ function CertificateCreate() {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
-        console.log("Fetching courses from:", `${API_BASE_URL}/api/courses/`);
         const res = await axios.get(`${API_BASE_URL}/api/courses/`, {
           params: { per_page: 1000 },
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        
-        console.log("Courses API Response:", res.data);
-        
+
         const data = res.data.data || [];
-        console.log("Extracted courses:", data);
-        
+
         setCourses(data);
       } catch (err) {
-        console.error("Error fetching courses:", err);
-        console.error("Error response:", err.response);
         Swal.fire("Error", "Failed to fetch courses", "error");
       } finally {
         setLoadingCourses(false);
@@ -191,7 +185,6 @@ function CertificateCreate() {
 
       setQuestionBankList(availableQuestions);
     } catch (err) {
-      console.error("Error fetching question bank:", err);
       Swal.fire("Error", "Failed to fetch question bank", "error");
     } finally {
       setLoadingQuestionBank(false);
@@ -271,20 +264,11 @@ function CertificateCreate() {
         // Now we have the full question data with options
         const questionOptions = q.options || [];
 
-        console.log(`Question ${idx + 1}:`, q.text);
-        console.log(`- Has ${questionOptions.length} options:`, questionOptions);
-
-        if (questionOptions.length < 2) {
-          console.warn(`Warning: Question "${q.text}" has less than 2 options!`);
-        }
-
         const mappedOptions = questionOptions.map((opt, optIdx) => ({
           id: Date.now() + idx * 100 + optIdx,
           text: opt.text,
           is_correct: opt.is_correct || false
         }));
-
-        console.log(`- Mapped options:`, mappedOptions);
 
         return {
           id: Date.now() + idx,
@@ -298,12 +282,9 @@ function CertificateCreate() {
         };
       });
 
-      console.log('Final newQuestions array:', newQuestions);
-
       // Validate that all questions have at least 2 options
       const questionsWithoutEnoughOptions = newQuestions.filter(q => !q.options || q.options.length < 2);
       if (questionsWithoutEnoughOptions.length > 0) {
-        console.error('Questions without enough options:', questionsWithoutEnoughOptions);
         Swal.fire({
           icon: "error",
           title: "Import Failed",
@@ -328,7 +309,6 @@ function CertificateCreate() {
         showConfirmButton: false,
       });
     } catch (error) {
-      console.error("Error importing questions:", error);
       Swal.fire({
         icon: "error",
         title: "Import Failed",
@@ -497,8 +477,6 @@ Return ONLY a valid JSON array in this exact format:
           generatedQuestions = JSON.parse(aiResponse);
         }
       } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        console.error("AI Response:", aiResponse);
         Swal.fire("Error", "Failed to parse AI response. Please try again.", "error");
         return;
       }
@@ -543,7 +521,6 @@ Return ONLY a valid JSON array in this exact format:
       });
 
     } catch (error) {
-      console.error("AI Generation error:", error);
       const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate questions";
       Swal.fire("Error", errorMessage, "error");
     } finally {
@@ -611,8 +588,6 @@ Return ONLY a valid JSON array in this exact format:
         }))
       };
 
-      console.log("Sending simplified payload:", payload);
-
       const response = await axios.post(
         `${API_BASE_URL}/api/admin/cert/certifications/`,
         payload,
@@ -624,8 +599,6 @@ Return ONLY a valid JSON array in this exact format:
         }
       );
 
-      console.log("Response:", response);
-
       Swal.fire({
         icon: "success",
         title: "Certificate created successfully!",
@@ -635,8 +608,6 @@ Return ONLY a valid JSON array in this exact format:
 
       navigate("/Certificates/list-certificate");
     } catch (error) {
-      console.error("Create error:", error.response);
-      
       let errorMessage = "Failed to create certificate.";
       
       if (error.response?.data) {

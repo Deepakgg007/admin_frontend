@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, Row, Col, Badge, Button } from "react-bootstrap";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
@@ -7,6 +7,34 @@ import Layout from "../../layout/default";
 import Block from "../../components/Block/Block";
 import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
+
+/**
+ * Helper function to render text with code formatting
+ * Handles both inline code and multi-line code blocks
+ */
+const renderTextWithCode = (text) => {
+  if (!text) return '';
+
+  // First, process multi-line code blocks (triple backticks)
+  let processedText = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    // Escape HTML entities in code
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Return pre-formatted code block with line breaks preserved
+    return `<pre style="background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 8px 0;"><code>${escapedCode}</code></pre>`;
+  });
+
+  // Then process inline code (single backticks)
+  const inlineCodeStyle = 'font-family: monospace; color: #e11d48; background: #fef2f2; padding: 2px 6px; border-radius: 4px;';
+  processedText = processedText.replace(/`([^`]+)`/g, `<code style="${inlineCodeStyle}">$1</code>`);
+
+  // Convert remaining newlines to <br> for non-code text
+  processedText = processedText.replace(/\n/g, '<br />');
+
+  return { __html: processedText };
+};
 
 function QuestionBankView() {
   const { id } = useParams();
@@ -86,7 +114,7 @@ function QuestionBankView() {
           <Row className="mb-4">
             <Col md={12}>
               <h5>Question</h5>
-              <p className="fs-5">{question.text}</p>
+              <p className="fs-5" dangerouslySetInnerHTML={renderTextWithCode(question.text)}></p>
             </Col>
           </Row>
 
@@ -163,12 +191,12 @@ function QuestionBankView() {
             {question.options?.map((option, idx) => (
               <div
                 key={option.id || idx}
-                className={`d-flex align-items-center p-2 mb-2 rounded ${
+                className={`d-flex align-items-start p-2 mb-2 rounded ${
                   option.is_correct ? "bg-success bg-opacity-10 border border-success" : "bg-light"
                 }`}
               >
                 <span className="fw-bold me-3">{String.fromCharCode(65 + idx)}.</span>
-                <span className="flex-grow-1">{option.text}</span>
+                <span className="flex-grow-1" dangerouslySetInnerHTML={renderTextWithCode(option.text)}></span>
                 {option.is_correct && (
                   <Badge bg="success">
                     <Icon name="check" className="me-1" /> Correct
