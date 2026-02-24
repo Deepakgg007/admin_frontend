@@ -9,6 +9,34 @@ import Block from "../../components/Block/Block";
 import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
 
+/**
+ * Helper function to render text with code formatting
+ * Handles both inline code and multi-line code blocks
+ */
+const renderTextWithCode = (text) => {
+  if (!text) return '';
+
+  // First, process multi-line code blocks (triple backticks)
+  let processedText = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    // Escape HTML entities in code
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Return pre-formatted code block with line breaks preserved
+    return `<pre style="background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 8px 0;"><code>${escapedCode}</code></pre>`;
+  });
+
+  // Then process inline code (single backticks)
+  const inlineCodeStyle = 'font-family: monospace; color: #e11d48; background: #fef2f2; padding: 2px 6px; border-radius: 4px;';
+  processedText = processedText.replace(/`([^`]+)`/g, `<code style="${inlineCodeStyle}">$1</code>`);
+
+  // Convert remaining newlines to <br> for non-code text
+  processedText = processedText.replace(/\n/g, '<br />');
+
+  return { __html: processedText };
+};
+
 function CertificateCreate() {
   const navigate = useNavigate();
   const authToken = localStorage.getItem("authToken");
@@ -163,7 +191,7 @@ function CertificateCreate() {
   const fetchQuestionBank = async (courseId) => {
     try {
       setLoadingQuestionBank(true);
-      const params = { per_page: 100, is_active: true };
+      const params = { is_active: true };
 
       // Filter by course if specified
       if (courseId) {
@@ -174,7 +202,7 @@ function CertificateCreate() {
         params,
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const data = res.data.data || res.data.results || [];
+      const data = res.data.data || res.data.results || res.data || [];
 
       // Filter out questions that have already been imported
       const importedQuestionBankIds = form.questions
@@ -1229,7 +1257,7 @@ Return ONLY a valid JSON array in this exact format:
                         className="me-3 mt-1"
                       />
                       <div className="flex-grow-1">
-                        <h6 className="mb-2">{question.text}</h6>
+                        <h6 className="mb-2" dangerouslySetInnerHTML={renderTextWithCode(question.text)} />
                         <div className="d-flex gap-3 text-muted small">
                           <span>
                             <strong>Difficulty:</strong> {question.difficulty}

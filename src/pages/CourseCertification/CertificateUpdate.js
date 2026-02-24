@@ -9,6 +9,34 @@ import Block from "../../components/Block/Block";
 import { Icon } from "../../components";
 import { API_BASE_URL } from "../../services/apiBase";
 
+/**
+ * Helper function to render text with code formatting
+ * Handles both inline code and multi-line code blocks
+ */
+const renderTextWithCode = (text) => {
+  if (!text) return '';
+
+  // First, process multi-line code blocks (triple backticks)
+  let processedText = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    // Escape HTML entities in code
+    const escapedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Return pre-formatted code block with line breaks preserved
+    return `<pre style="background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 8px 0;"><code>${escapedCode}</code></pre>`;
+  });
+
+  // Then process inline code (single backticks)
+  const inlineCodeStyle = 'font-family: monospace; color: #e11d48; background: #fef2f2; padding: 2px 6px; border-radius: 4px;';
+  processedText = processedText.replace(/`([^`]+)`/g, `<code style="${inlineCodeStyle}">$1</code>`);
+
+  // Convert remaining newlines to <br> for non-code text
+  processedText = processedText.replace(/\n/g, '<br />');
+
+  return { __html: processedText };
+};
+
 function CertificateUpdate() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -161,16 +189,58 @@ function CertificateUpdate() {
 
     setShowQuestionBankModal(true);
     setLoadingQuestionBank(true);
+    setSelectedQuestionIds([]);
 
     try {
+      console.log('Fetching questions for course:', form.course);
+      console.log('Already imported bank questions:', bankQuestions);
+
       const response = await axios.get(`${API_BASE_URL}/api/admin/question-bank/questions/`, {
-        params: { course: form.course, per_page: 1000 },
+        params: { course: form.course, is_active: true },
         headers: { Authorization: `Bearer ${authToken}` },
       });
 
-      const data = response.data?.results || response.data?.data || [];
-      setQuestionBankQuestions(data);
+      console.log('Question bank API response:', response.data);
+
+      // Handle multiple response formats
+      // Direct array (pagination disabled): [{...}, {...}]
+      // StandardResponseMixin: { data: [...] }
+      // Paginated: { results: [...] }
+      let data = [];
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        data = response.data.data;
+      } else if (response.data?.results && Array.isArray(response.data.results)) {
+        data = response.data.results;
+      }
+
+      console.log('Extracted questions data:', data.length, 'questions');
+
+      // Filter out questions that have already been imported from the Question Bank
+      // Get IDs of questions already linked to this certification via bank_questions
+      const importedQuestionIds = bankQuestions.map(bq => {
+        // Backend now returns: { id, question: { id, text }, weight, order, is_active }
+        if (bq.question && typeof bq.question === 'object' && bq.question.id) {
+          return bq.question.id;
+        }
+        // Fallback for other possible structures
+        if (typeof bq.question === 'number') {
+          return bq.question;
+        }
+        return null;
+      }).filter(id => id !== null);
+
+      console.log('Already imported question IDs:', importedQuestionIds);
+      console.log('bankQuestions structure:', bankQuestions);
+
+      const availableQuestions = data.filter(q => !importedQuestionIds.includes(q.id));
+
+      console.log('Available questions after filtering:', availableQuestions.length);
+
+      setQuestionBankQuestions(availableQuestions);
     } catch (error) {
+      console.error('Error loading question bank:', error);
       Swal.fire("Error!", "Failed to load Question Bank.", "error");
     } finally {
       setLoadingQuestionBank(false);
@@ -202,6 +272,8 @@ function CertificateUpdate() {
     }
 
     try {
+      console.log('Importing questions:', selectedQuestionIds, 'to certification:', id);
+
       const response = await axios.post(
         `${API_BASE_URL}/api/admin/question-bank/questions/import_to_certification/`,
         {
@@ -210,6 +282,8 @@ function CertificateUpdate() {
         },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
+
+      console.log('Import response:', response.data);
 
       if (response.data.success) {
         Swal.fire("Success!", response.data.message, "success");
@@ -220,7 +294,26 @@ function CertificateUpdate() {
         window.location.reload();
       }
     } catch (error) {
-      Swal.fire("Error!", error.response?.data?.error || "Failed to import questions.", "error");
+      console.error('Import error:', error);
+      console.error('Error response:', error.response?.data);
+
+      // Show detailed error information
+      let errorMessage = "Failed to import questions.";
+      if (error.response?.data) {
+        if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = JSON.stringify(error.response.data, null, 2);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Swal.fire("Error!", errorMessage, "error");
     }
   };
 
@@ -741,19 +834,30 @@ function CertificateUpdate() {
               <p className="mt-3">Loading questions...</p>
             </div>
           ) : questionBankQuestions.length === 0 ? (
-            <Alert variant="warning">
-              No questions found for the selected course in Question Bank.
-              <br />
-              <Link to="/QuestionBank/list-questions" target="_blank">
-                Go to Question Bank to create questions
+            <Alert variant="info">
+              <strong>No new questions available to import.</strong>
+              <p className="mb-0 mt-2">
+                {bankQuestions.length > 0
+                  ? `All ${bankQuestions.length} question(s) from the Question Bank have already been imported for this certificate.`
+                  : 'Please create questions for this course in the Question Bank first.'
+                }
+              </p>
+              <Link to="/QuestionBank/list-questions" target="_blank" className="btn btn-sm btn-outline-primary mt-2">
+                Go to Question Bank
               </Link>
             </Alert>
           ) : (
             <>
-              <Alert variant="info">
-                <small>
-                  Select questions to import. These questions are from the Question Bank for the selected course.
-                </small>
+              <Alert variant="info" className="mb-3">
+                <Icon name="info-fill" className="me-2" />
+                Showing <strong>{questionBankQuestions.length}</strong> available question(s) for import.
+                {bankQuestions.length > 0 && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      ({bankQuestions.length} question(s) already imported and hidden from this list)
+                    </small>
+                  </div>
+                )}
               </Alert>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <p className="text-muted mb-0">
@@ -778,7 +882,7 @@ function CertificateUpdate() {
                         className="me-3 mt-1"
                       />
                       <div className="flex-grow-1">
-                        <h6>Q{index + 1}: {question.text}</h6>
+                        <h6>Q{index + 1}: <span dangerouslySetInnerHTML={renderTextWithCode(question.text)} /></h6>
                         <div className="d-flex gap-2 mt-2">
                           <Badge bg={
                             question.difficulty === 'EASY' ? 'success' :

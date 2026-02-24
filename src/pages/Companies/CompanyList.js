@@ -40,26 +40,36 @@ function CompanyList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        let data = response.data.results || response.data;
+        // Use backend pagination response
+        const data = response.data.results || response.data;
+        const total = response.data.count || 0;
 
         // Client-side filtering by creator type
+        let filteredData = Array.isArray(data) ? data : [];
         if (creatorFilter !== "all") {
           if (creatorFilter === "Superuser") {
-            data = data.filter(company => !company.college_name);
+            filteredData = filteredData.filter(company => !company.college_name);
           } else if (creatorFilter === "College") {
-            data = data.filter(company => company.college_name);
+            filteredData = filteredData.filter(company => company.college_name);
           }
         }
 
-        const total = Array.isArray(data) ? data.length : 0;
-
         console.log('📌 Companies API Response:', response.data);
-        console.log('📌 Companies extracted:', Array.isArray(data) ? data.length : 0, 'Total:', total);
-        console.log('📌 First Company Image (full URL):', data[0]?.image_display);
+        console.log('📌 Companies extracted:', filteredData.length, 'Total from backend:', total);
+        console.log('📌 First Company Image (full URL):', filteredData[0]?.image_display);
 
-        setCompanies(Array.isArray(data) ? data : []);
+        setCompanies(filteredData);
+
+        // Use backend count for total, unless client-side filtering is active
+        if (creatorFilter !== "all") {
+          // When using client-side filtering, we can only show what's on the current page
+          setTotalCount(filteredData.length);
+        } else {
+          // Use backend count for server-side pagination
+          setTotalCount(total);
+        }
+
         setCurrentPage(page);
-        setTotalCount(total);
       } catch (error) {
         setCompanies([]);
         setTotalCount(0);

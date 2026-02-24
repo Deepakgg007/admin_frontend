@@ -83,8 +83,22 @@ function QuestionBankList() {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 
-        const res = response.data;
-        const data = res?.results || res?.data || [];
+        // Handle multiple response formats
+        // Format 1: StandardResponseMixin -> { success: true, data: [...] }
+        // Format 2: Direct array -> [...]
+        // Format 3: Paginated -> { results: [...] }
+        let data = [];
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            data = response.data;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            data = response.data.data;
+          } else if (response.data.results && Array.isArray(response.data.results)) {
+            data = response.data.results;
+          }
+        }
+
+        console.log('Fetched questions:', data.length, 'questions');
 
         // Group questions by course
         const grouped = data.reduce((acc, question) => {
@@ -210,6 +224,65 @@ function QuestionBankList() {
     } catch (error) {
       Swal.fire("Error!", error.response?.data?.message || "Failed to delete.", "error");
     }
+  };
+
+  const deleteSelectedQuestions = async () => {
+    if (selectedRows.length === 0) {
+      Swal.fire("Warning", "Please select at least one question to delete.", "warning");
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: "Delete Selected Questions?",
+      text: `Are you sure you want to delete ${selectedRows.length} selected question(s)? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete them!",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      // Delete all selected questions
+      const deletePromises = selectedRows.map(question =>
+        axios.delete(`${API_BASE_URL}/api/admin/question-bank/questions/${question.id}/`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+      );
+
+      await Promise.all(deletePromises);
+
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: `${selectedRows.length} question(s) deleted successfully.`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      // Clear selection and refresh
+      setSelectedRows([]);
+      fetchQuestions();
+    } catch (error) {
+      Swal.fire("Error!", error.response?.data?.message || "Failed to delete some questions.", "error");
+    }
+  };
+
+  const selectAllQuestions = () => {
+    // Get all visible questions from all courses
+    const allQuestions = Object.values(groupedQuestions).flatMap(course => course.questions);
+    setSelectedRows(allQuestions);
+  };
+
+  const clearSelection = () => {
+    setSelectedRows([]);
+  };
+
+  const areAllQuestionsSelected = () => {
+    const totalQuestions = Object.values(groupedQuestions).reduce((sum, course) => sum + course.questions.length, 0);
+    return totalQuestions > 0 && selectedRows.length === totalQuestions;
   };
 
   const handleAIGenerate = async () => {
@@ -400,9 +473,14 @@ function QuestionBankList() {
               <Icon name="spark" className="me-1" /> AI Generate
             </Button>
             {selectedRows.length > 0 && (
-              <Button variant="info" className="me-2" onClick={() => setShowImportModal(true)}>
-                <Icon name="upload" className="me-1" /> Import to Certification ({selectedRows.length})
-              </Button>
+              <>
+                <Button variant="info" className="me-2" onClick={() => setShowImportModal(true)}>
+                  <Icon name="upload" className="me-1" /> Import ({selectedRows.length})
+                </Button>
+                <Button variant="danger" className="me-2" onClick={deleteSelectedQuestions}>
+                  <Icon name="trash" className="me-1" /> Delete Selected ({selectedRows.length})
+                </Button>
+              </>
             )}
             <Link to="/QuestionBank/create-question" className="btn btn-primary">
               <Icon name="plus" className="me-1" /> Add Question
@@ -492,7 +570,36 @@ function QuestionBankList() {
             <p className="text-muted">Try adjusting your filters or generate questions using AI.</p>
           </Card>
         ) : (
-          <div className="course-cards-container">
+          <>
+            {Object.keys(groupedQuestions).length > 0 && (
+              <Card className="p-3 mb-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong className="me-3">Bulk Actions:</strong>
+                    <span className="text-muted">{selectedRows.length} question(s) selected</span>
+                  </div>
+                  <div className="d-flex gap-2">
+                    {selectedRows.length === 0 ? (
+                      <Button variant="outline-primary" size="sm" onClick={selectAllQuestions}>
+                        <Icon name="check-square" className="me-1" /> Select All
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline-secondary" size="sm" onClick={clearSelection}>
+                          <Icon name="x" className="me-1" /> Clear Selection
+                        </Button>
+                        {!areAllQuestionsSelected() && (
+                          <Button variant="outline-primary" size="sm" onClick={selectAllQuestions}>
+                            <Icon name="check-square" className="me-1" /> Select All
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+            <div className="course-cards-container">
             {Object.values(groupedQuestions).map((courseGroup) => {
               const isExpanded = expandedCourses[courseGroup.id];
               const questionCount = courseGroup.questions.length;
@@ -584,7 +691,8 @@ function QuestionBankList() {
                 </Card>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </Block>
 

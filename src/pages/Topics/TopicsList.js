@@ -56,33 +56,21 @@ function TopicsList() {
           params.course = courseFilter;
         }
 
-        // Fetch all pages of topics
-        let allTopics = [];
-        let nextUrl = `${API_BASE_URL}/api/topics/`;
+        // Backend pagination is disabled, fetch all topics at once
+        const response = await axios.get(`${API_BASE_URL}/api/topics/`, {
+          params,
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
 
-        while (nextUrl) {
-          const response = await axios.get(nextUrl, {
-            params: nextUrl === `${API_BASE_URL}/api/topics/` ? params : {},
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-
-          const res = response.data;
-          const pageResults = res?.data || res?.results || [];
-
-          if (Array.isArray(pageResults)) {
-            allTopics = [...allTopics, ...pageResults];
-          }
-
-          // Check for next page
-          nextUrl = res?.next || null;
-        }
+        // Backend returns data directly as array or in data property
+        const allTopics = Array.isArray(response.data) ? response.data : response.data?.data || [];
 
         // Client-side filtering by creator type
-        if (creatorFilter !== "all") {
-          allTopics = allTopics.filter(topic => topic.creator_type === creatorFilter);
-        }
+        const filteredTopics = creatorFilter !== "all"
+          ? allTopics.filter(topic => topic.creator_type === creatorFilter)
+          : allTopics;
 
-        setTopics(allTopics);
+        setTopics(filteredTopics);
       } catch (error) {
         setTopics([]);
 

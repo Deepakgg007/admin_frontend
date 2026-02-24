@@ -37,7 +37,7 @@ function ChallengeList() {
         headers: { Authorization: `Bearer ${authToken}` },
       });
 
-      // Handle both array and paginated response
+      // Backend pagination is disabled, response.data is directly an array
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       setChallenges(data);
     } catch (error) {
@@ -231,6 +231,8 @@ function ChallengeList() {
               data={challenges}
               progressPending={loading}
               pagination
+              paginationPerPage={20}
+              paginationRowsPerPageOptions={[10, 20, 50, 100]}
               highlightOnHover
               responsive
               noDataComponent={
